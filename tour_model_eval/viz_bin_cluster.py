@@ -13,6 +13,7 @@ import emission.analysis.modelling.tour_model.featurization as featurization
 # imports for visualization code
 import folium
 import branca.colormap as cm
+import pandas as pd
 
 
 def bins_map(bins, sel_bin_indices, trips):
@@ -32,6 +33,7 @@ def bins_map(bins, sel_bin_indices, trips):
     map = folium.Map(location=[trips[0].data.start_loc["coordinates"][1], trips[0].data.start_loc["coordinates"][0]],
                    zoom_start=12, max_zoom=30, control_scale=True)
 
+    zoom_points = []
     for index, curr_bin in enumerate(bins):
         if sel_bin_indices is None or index in sel_bin_indices:
             for curr_trip_index in curr_bin:
@@ -43,6 +45,14 @@ def bins_map(bins, sel_bin_indices, trips):
                      [curr_trip.data.end_loc["coordinates"][1], curr_trip.data.end_loc["coordinates"][0]]], weight=2,
                     color=color_map(index+1))
                 layer.add_to(map)
+                zoom_points.append([curr_trip.data.start_loc["coordinates"][1],
+                                    curr_trip.data.start_loc["coordinates"][0]])
+                zoom_points.append([curr_trip.data.end_loc["coordinates"][1],
+                                    curr_trip.data.end_loc["coordinates"][0]])
+    df = pd.DataFrame(zoom_points, columns=['Lat', 'Long'])
+    sw = df[['Lat', 'Long']].min().values.tolist()
+    ne = df[['Lat', 'Long']].max().values.tolist()
+    map.fit_bounds([sw, ne])
 
     map.add_child(color_map)
     return map
@@ -64,16 +74,24 @@ def clusters_map(labels, sel_label_list, points, clusters):
     labels_clt = list(set(sorted(labels)))
     color_map = cm.linear.Set1_07.to_step(clusters, index=[i for i in range(len(labels_clt)+1)])
 
+    zoom_points = []
     points_label_list = list(zip(points, labels))
     for point, label in points_label_list:
         if sel_label_list is None or label in sel_label_list:
             start_lat = point[1]
             start_lon = point[0]
+            zoom_points.append([start_lat, start_lon])
             end_lat = point[3]
             end_lon = point[2]
+            zoom_points.append([end_lat,end_lon])
             layer = folium.PolyLine([[start_lat, start_lon],
                                      [end_lat, end_lon]], weight=2, color=color_map(label+1))
             layer.add_to(map)
+
+    df = pd.DataFrame(zoom_points, columns=['Lat', 'Long'])
+    sw = df[['Lat', 'Long']].min().values.tolist()
+    ne = df[['Lat', 'Long']].max().values.tolist()
+    map.fit_bounds([sw, ne])
 
     map.add_child(color_map)
     return map
