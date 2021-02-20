@@ -60,8 +60,6 @@ def precision_bins (all_bins_preci,bins,non_empty_trips,sp2en=None,cvt_purpose=N
 def precision_bin_all_users(all_users,radius,sp2en=None,cvt_purpose=None):
     all_users_preci = []
     for i in range(len(all_users)):
-        if i == 11:  # filter out non-typical user
-            continue
         user = all_users[i]
         trips = pipeline.read_data(uuid=user, key='confirmed_trip')
         all_bins_preci = []
@@ -70,13 +68,6 @@ def precision_bin_all_users(all_users,radius,sp2en=None,cvt_purpose=None):
             sim = similarity.similarity(non_empty_trips, radius)
             if sim.data:
                 sim.bin_data()
-                if sp2en is None and cvt_purpose is None:
-                    all_bins_preci = precision_bins(all_bins_preci, sim.bins, non_empty_trips)
-                elif sp2en == 'True' and cvt_purpose is None:
-                    all_bins_preci = precision_bins(all_bins_preci, sim.bins, non_empty_trips,
-                                                    sp2en='True')
-                elif sp2en == 'True' and cvt_purpose == 'True':
-                    all_bins_preci = precision_bins(all_bins_preci, sim.bins, non_empty_trips,
-                                                    sp2en='True', cvt_purpose='True')
+                all_bins_preci = precision_bins(all_bins_preci, sim.bins, non_empty_trips, sp2en, cvt_purpose)
         all_users_preci.append(round(mean(all_bins_preci), 2))
     return all_users_preci
