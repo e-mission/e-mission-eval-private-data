@@ -61,7 +61,7 @@ def precision_bin_all_users(all_users,radius,sp2en=None,cvt_purpose=None):
     all_users_preci = []
     for i in range(len(all_users)):
         user = all_users[i]
-        trips = pipeline.read_data(uuid=user, key='confirmed_trip')
+        trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
         all_bins_preci = []
         non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
         if non_empty_trips != {}:
