@@ -23,6 +23,16 @@ map_pur_dict = {'course':'school','work_- lunch break':'lunch_break','on_the way
                'insurance_payment':'insurance'}
 
 
+def filter_data(user,radius):
+    trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
+    non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
+    valid_trips = [t for t in non_empty_trips if 'mode_confirm' in t["data"]["user_input"] and
+                   'purpose_confirm' in t["data"]["user_input"] and 'replaced_mode' in t["data"]["user_input"]]
+    sim = similarity.similarity(valid_trips, radius)
+    filter_trips = sim.data
+    return filter_trips,sim
+
+
 # v_measure_bins takes 5 parameters
 # - sp2en=True: change Spanish to English
 # - cvt_pur_mo=True: convert purposes and replaced mode
@@ -35,12 +45,7 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
     v_score = []
     for i in range(len(all_users)):
         user = all_users[i]
-        trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
-        non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
-        valid_trips = [t for t in non_empty_trips if 'mode_confirm' in t["data"]["user_input"] and
-                       'purpose_confirm' in t["data"]["user_input"] and 'replaced_mode' in t["data"]["user_input"]]
-        sim = similarity.similarity(valid_trips, radius)
-        filter_trips = sim.data
+        filter_trips,sim = filter_data(user,radius)
 
         # filter out users that haven't enough trips (at least 10) to analyze
         if len(filter_trips) < 10:
@@ -129,12 +134,8 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
     v_score = []
     for i in range(len(all_users)):
         user = all_users[i]
-        trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
-        non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
-        valid_trips = [t for t in non_empty_trips if 'mode_confirm' in t["data"]["user_input"] and
-                       'purpose_confirm' in t["data"]["user_input"] and 'replaced_mode' in t["data"]["user_input"]]
-        sim = similarity.similarity(valid_trips, radius)
-        filter_trips = sim.data
+        filter_trips,sim = filter_data(user,radius)
+
         # filter out users that haven't enough trips (at least 10) to analyze
         if len(filter_trips) < 10:
             homo_score.append(NaN)
