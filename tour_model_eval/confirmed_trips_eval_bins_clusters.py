@@ -22,15 +22,31 @@ span_eng_dict = {'revisado_bike':'test ride with bike','placas_de carro':'car pl
 map_pur_dict = {'course':'school','work_- lunch break':'lunch_break','on_the way home':'home',
                'insurance_payment':'insurance'}
 
+def get_user_ls(all_users):
+    user_ls = []
+    for i in range(len(all_users)):
+        curr_user = 'user' + str(i + 1)
+        user_ls.append(curr_user)
+    return user_ls
+
 
 def filter_data(user,radius):
     trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
     non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
-    valid_trips = [t for t in non_empty_trips if 'mode_confirm' in t["data"]["user_input"] and
-                   'purpose_confirm' in t["data"]["user_input"] and 'replaced_mode' in t["data"]["user_input"]]
+    non_empty_trips_df = pd.DataFrame(t["data"]["user_input"] for t in non_empty_trips)
+    valid_trips_df = non_empty_trips_df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=False)
+    valid_trips_idx_ls = valid_trips_df.index.tolist()
+    valid_trips = [non_empty_trips[i]for i in valid_trips_idx_ls]
+
     sim = similarity.similarity(valid_trips, radius)
     filter_trips = sim.data
-    return filter_trips,sim
+    return filter_trips,sim,trips
+
+def valid_user(filter_trips,trips):
+    valid = False
+    if len(filter_trips) >= 10 and len(filter_trips) / len(trips) >= 0.5:
+        valid = True
+    return valid
 
 
 # v_measure_bins takes 5 parameters
@@ -45,10 +61,11 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
     v_score = []
     for i in range(len(all_users)):
         user = all_users[i]
-        filter_trips,sim = filter_data(user,radius)
+        filter_trips,sim,trips = filter_data(user,radius)
 
-        # filter out users that haven't enough trips (at least 10) to analyze
-        if len(filter_trips) < 10:
+        # filter out users that haven't enough trips (at least 10 valid trips
+        # and 50% of total trips are valid) to analyze
+        if not valid_user(filter_trips,trips):
             homo_score.append(NaN)
             comp_score.append(NaN)
             v_score.append(NaN)
@@ -67,11 +84,6 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
             bin_trips = sim.newdata
             bins = sim.bins
 
-            if len(bin_trips) < 10:
-                homo_score.append(NaN)
-                comp_score.append(NaN)
-                v_score.append(NaN)
-                continue
         bin_trips_df = pd.DataFrame(data=[trip["data"]["user_input"] for trip in bin_trips])
 
         if sp2en:
@@ -111,7 +123,7 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
             for index in bin:
                 bin_ls.append(index)
         bins_ts = pd.DataFrame(data=[filter_trips[i]["data"]["start_ts"] for i in bin_ls])
-        # compare two data frames, return nothing if two data frames are the same
+        # compare two data frames, the program will continue to score calculation if two data frames are the same
         assert_frame_equal(bins_ts, bin_trips_ts)
         homo = metrics.homogeneity_score(labels_true, labels_pred)
         homo_score.append(float('%.3f' % homo))
@@ -134,10 +146,10 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
     v_score = []
     for i in range(len(all_users)):
         user = all_users[i]
-        filter_trips,sim = filter_data(user,radius)
+        filter_trips,sim,trips = filter_data(user,radius)
 
-        # filter out users that haven't enough trips (at least 10) to analyze
-        if len(filter_trips) < 10:
+        # filter out users that haven't enough trips to analyze
+        if not valid_user(filter_trips,trips):
             homo_score.append(NaN)
             comp_score.append(NaN)
             v_score.append(NaN)
@@ -146,12 +158,6 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
         sim.delete_bins()
         bin_trips = sim.newdata
         bins = sim.bins
-
-        if len(bin_trips) < 10:
-            homo_score.append(NaN)
-            comp_score.append(NaN)
-            v_score.append(NaN)
-            continue
 
         # clustering the data only based on sil score (min_cluster = 0) instead of bins number (len(bins))
         feat = featurization.featurization(bin_trips)
@@ -186,7 +192,8 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
                 labels_true.append(no_dup_list.index(trip))
         labels_pred = feat.labels
 
-        # compare the points in cluster_trips and those in feat.points, return nothing if two data frames are the same
+        # compare the points in cluster_trips and those in feat.points, the program will continue to score calculation
+        # if the frames are the same
         cluster_ps = []
         for trip in cluster_trips:
             cluster_ps.append([trip["data"]["start_loc"]["coordinates"][0],
