@@ -22,12 +22,20 @@ span_eng_dict = {'revisado_bike':'test ride with bike','placas_de carro':'car pl
 map_pur_dict = {'course':'school','work_- lunch break':'lunch_break','on_the way home':'home',
                'insurance_payment':'insurance'}
 
-def get_user_ls(all_users):
+def get_user_ls(all_users,radius):
     user_ls = []
+    valid_user_ls = []
     for i in range(len(all_users)):
         curr_user = 'user' + str(i + 1)
-        user_ls.append(curr_user)
-    return user_ls
+        user = all_users[i]
+        filter_trips,sim,trips = filter_data(user,radius)
+        if valid_user(filter_trips,trips):
+            valid_user_ls.append(curr_user)
+            user_ls.append(curr_user)
+        else:
+            user_ls.append(curr_user)
+            continue
+    return user_ls,valid_user_ls
 
 
 def filter_data(user,radius):
@@ -48,6 +56,44 @@ def valid_user(filter_trips,trips):
         valid = True
     return valid
 
+def map_labels(user_input_df,span_eng_dict,map_pur_dict,sp2en,cvt_pur_mo):
+    if sp2en:
+        # change language
+        user_input_df = user_input_df.replace(span_eng_dict)
+    elif cvt_pur_mo:
+        # change language first
+        user_input_df = user_input_df.replace(span_eng_dict)
+        # convert purpose
+        user_input_df = user_input_df.replace(map_pur_dict)
+        # convert mode
+        for a in range(len(user_input_df)):
+            if user_input_df.iloc[a]["replaced_mode"] == "same_mode":
+                # to see which row will be converted
+                logging.debug("The following rows will be changed: %s", user_input_df.iloc[a])
+                user_input_df.iloc[a]["replaced_mode"] = user_input_df.iloc[a]['mode_confirm']
+    return user_input_df
+
+
+def valid_user_check(filter_trips,trips,homo_score,comp_score,v_score):
+    if not valid_user(filter_trips, trips):
+        homo_score.append(NaN)
+        comp_score.append(NaN)
+        v_score.append(NaN)
+        skip = True
+    else:
+        skip = False
+    return homo_score,comp_score,v_score,skip
+
+
+def compute_score(labels_true,labels_pred,homo_score,comp_score,v_score):
+    homo = metrics.homogeneity_score(labels_true, labels_pred)
+    homo_score.append(float('%.3f' % homo))
+    comp = metrics.completeness_score(labels_true, labels_pred)
+    comp_score.append(float('%.3f' % comp))
+    v = metrics.v_measure_score(labels_true, labels_pred)
+    v_score.append(float('%.3f' % v))
+    return homo_score,comp_score,v_score
+
 
 # v_measure_bins takes 5 parameters
 # - sp2en=True: change Spanish to English
@@ -63,13 +109,10 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
         user = all_users[i]
         filter_trips,sim,trips = filter_data(user,radius)
 
-        # filter out users that haven't enough trips (at least 10 valid trips
-        # and 50% of total trips are valid) to analyze
-        if not valid_user(filter_trips,trips):
-            homo_score.append(NaN)
-            comp_score.append(NaN)
-            v_score.append(NaN)
+        homo_score,comp_score,v_score,skip = valid_user_check(filter_trips,trips,homo_score,comp_score,v_score)
+        if skip:
             continue
+
         sim.bin_data()
         if cutoff is None:
             trip_index_ls = []
@@ -84,23 +127,13 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
             bin_trips = sim.newdata
             bins = sim.bins
 
-        bin_trips_df = pd.DataFrame(data=[trip["data"]["user_input"] for trip in bin_trips])
-
-        if sp2en:
-            bin_trips_df = bin_trips_df.replace(span_eng_dict)
-        elif cvt_pur_mo:
-            bin_trips_df = bin_trips_df.replace(span_eng_dict)
-            bin_trips_df = bin_trips_df.replace(map_pur_dict)
-            for a in range(len(bin_trips_df)):
-                if bin_trips_df.iloc[a]["replaced_mode"] == "same_mode":
-                    # to see which row will be converted
-                    logging.debug("The following rows will be changed: %s", bin_trips_df.iloc[a])
-                    bin_trips_df.iloc[a]["replaced_mode"] = bin_trips_df.iloc[a]['mode_confirm']
+        bin_trips_user_input_df = pd.DataFrame(data=[trip["data"]["user_input"] for trip in bin_trips])
+        bin_trips_user_input_df = map_labels(bin_trips_user_input_df, span_eng_dict, map_pur_dict, sp2en, cvt_pur_mo)
 
         # turn all user_input into list without binning
-        bin_trips_user_input_ls = bin_trips_df.values.tolist()
+        bin_trips_user_input_ls = bin_trips_user_input_df.values.tolist()
         # drop duplicate user_input
-        no_dup_df = bin_trips_df.drop_duplicates()
+        no_dup_df = bin_trips_user_input_df.drop_duplicates()
         # turn non-duplicate user_input into list
         no_dup_list = no_dup_df.values.tolist()
 
@@ -125,12 +158,7 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
         bins_ts = pd.DataFrame(data=[filter_trips[i]["data"]["start_ts"] for i in bin_ls])
         # compare two data frames, the program will continue to score calculation if two data frames are the same
         assert_frame_equal(bins_ts, bin_trips_ts)
-        homo = metrics.homogeneity_score(labels_true, labels_pred)
-        homo_score.append(float('%.3f' % homo))
-        comp = metrics.completeness_score(labels_true, labels_pred)
-        comp_score.append(float('%.3f' % comp))
-        v = metrics.v_measure_score(labels_true, labels_pred)
-        v_score.append(float('%.3f' % v))
+        homo_score, comp_score, v_score = compute_score(labels_true, labels_pred, homo_score, comp_score, v_score)
 
     return homo_score, comp_score, v_score
 
@@ -148,12 +176,10 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
         user = all_users[i]
         filter_trips,sim,trips = filter_data(user,radius)
 
-        # filter out users that haven't enough trips to analyze
-        if not valid_user(filter_trips,trips):
-            homo_score.append(NaN)
-            comp_score.append(NaN)
-            v_score.append(NaN)
+        homo_score,comp_score,v_score,skip = valid_user_check(filter_trips,trips,homo_score,comp_score,v_score)
+        if skip:
             continue
+
         sim.bin_data()
         sim.delete_bins()
         bin_trips = sim.newdata
@@ -166,19 +192,7 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
         feat.cluster(min_clusters=min, max_clusters=max)
         cluster_trips = feat.data
         cluster_user_input_df = pd.DataFrame(data=[i["data"]["user_input"] for i in cluster_trips])
-        if sp2en:
-            # change language
-            cluster_user_input_df = cluster_user_input_df.replace(span_eng_dict)
-            cluster_user_input_ls = cluster_user_input_df.values.tolist()
-        elif cvt_pur_mo:
-            # change language first
-            cluster_user_input_df = cluster_user_input_df.replace(span_eng_dict)
-            # convert purpose
-            cluster_user_input_df = cluster_user_input_df.replace(map_pur_dict)
-            # convert mode
-            for a in range(len(cluster_user_input_df)):
-                if cluster_user_input_df.iloc[a]["replaced_mode"] == "same_mode":
-                    cluster_user_input_df.iloc[a]["replaced_mode"] = cluster_user_input_df.iloc[a]['mode_confirm']
+        cluster_user_input_df = map_labels(cluster_user_input_df, span_eng_dict, map_pur_dict, sp2en, cvt_pur_mo)
         # turn cluster_trips to list without any changes
         cluster_user_input_ls = cluster_user_input_df.values.tolist()
         # drop duplicate user_input
@@ -203,13 +217,7 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
         cluster_ps_df = pd.DataFrame(data=cluster_ps)
         label_ps_df = pd.DataFrame(data=feat.points)
         assert_frame_equal(cluster_ps_df, label_ps_df)
-
-        homo = metrics.homogeneity_score(labels_true, labels_pred)
-        homo_score.append(float('%.3f' % homo))
-        comp = metrics.completeness_score(labels_true, labels_pred)
-        comp_score.append(float('%.3f' % comp))
-        v = metrics.v_measure_score(labels_true, labels_pred)
-        v_score.append(float('%.3f' % v))
+        homo_score, comp_score, v_score = compute_score(labels_true, labels_pred, homo_score, comp_score, v_score)
 
     return homo_score, comp_score, v_score
 
