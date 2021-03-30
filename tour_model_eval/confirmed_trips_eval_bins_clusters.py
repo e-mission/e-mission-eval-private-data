@@ -12,15 +12,6 @@ from numpy import *
 from sklearn import metrics
 from pandas.testing import assert_frame_equal
 
-# Spanish words to English
-span_eng_dict = {'revisado_bike':'test ride with bike','placas_de carro':'car plates','aseguranza':'insurance',
- 'iglesia':'church','curso':'course','mi_hija recién aliviada':'my daughter just had a new baby',
- 'servicio_comunitario':'community service','pago_de aseguranza':'insurance payment',
- 'grupo_comunitario':'community group','caminata_comunitaria':'community walk'}
-
-# Convert purpose
-map_pur_dict = {'course':'school','work_- lunch break':'lunch_break','on_the way home':'home',
-               'insurance_payment':'insurance'}
 
 def get_user_ls(all_users,radius):
     user_ls = []
@@ -56,7 +47,18 @@ def valid_user(filter_trips,trips):
         valid = True
     return valid
 
-def map_labels(user_input_df,span_eng_dict,map_pur_dict,sp2en,cvt_pur_mo):
+def map_labels(user_input_df,sp2en,cvt_pur_mo):
+    # Spanish words to English
+    span_eng_dict = {'revisado_bike': 'test ride with bike', 'placas_de carro': 'car plates', 'aseguranza': 'insurance',
+                     'iglesia': 'church', 'curso': 'course',
+                     'mi_hija recién aliviada': 'my daughter just had a new baby',
+                     'servicio_comunitario': 'community service', 'pago_de aseguranza': 'insurance payment',
+                     'grupo_comunitario': 'community group', 'caminata_comunitaria': 'community walk'}
+
+    # Convert purpose
+    map_pur_dict = {'course': 'school', 'work_- lunch break': 'lunch_break', 'on_the way home': 'home',
+                    'insurance_payment': 'insurance'}
+
     if sp2en:
         # change language
         user_input_df = user_input_df.replace(span_eng_dict)
@@ -128,7 +130,7 @@ def v_measure_bins(all_users,radius,sp2en=None,cvt_pur_mo=None,cutoff=None):
             bins = sim.bins
 
         bin_trips_user_input_df = pd.DataFrame(data=[trip["data"]["user_input"] for trip in bin_trips])
-        bin_trips_user_input_df = map_labels(bin_trips_user_input_df, span_eng_dict, map_pur_dict, sp2en, cvt_pur_mo)
+        bin_trips_user_input_df = map_labels(bin_trips_user_input_df, sp2en, cvt_pur_mo)
 
         # turn all user_input into list without binning
         bin_trips_user_input_ls = bin_trips_user_input_df.values.tolist()
@@ -192,7 +194,7 @@ def v_measure_clusters(all_users,radius,sp2en=None,cvt_pur_mo=None):
         feat.cluster(min_clusters=min, max_clusters=max)
         cluster_trips = feat.data
         cluster_user_input_df = pd.DataFrame(data=[i["data"]["user_input"] for i in cluster_trips])
-        cluster_user_input_df = map_labels(cluster_user_input_df, span_eng_dict, map_pur_dict, sp2en, cvt_pur_mo)
+        cluster_user_input_df = map_labels(cluster_user_input_df, sp2en, cvt_pur_mo)
         # turn cluster_trips to list without any changes
         cluster_user_input_ls = cluster_user_input_df.values.tolist()
         # drop duplicate user_input
