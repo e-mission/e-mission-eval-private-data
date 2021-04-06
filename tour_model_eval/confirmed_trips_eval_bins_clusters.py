@@ -13,6 +13,8 @@ from sklearn import metrics
 from pandas.testing import assert_frame_equal
 
 
+# - user_ls: a list of all users
+# - valid_user_ls: a list of valid users
 def get_user_ls(all_users,radius):
     user_ls = []
     valid_user_ls = []
@@ -29,6 +31,8 @@ def get_user_ls(all_users,radius):
     return user_ls,valid_user_ls
 
 
+# - trips: all trips read from database
+# - filter_trips: valid trips that have user labels and are not points
 def filter_data(user,radius):
     trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
     non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
@@ -37,16 +41,25 @@ def filter_data(user,radius):
     valid_trips_idx_ls = valid_trips_df.index.tolist()
     valid_trips = [non_empty_trips[i]for i in valid_trips_idx_ls]
 
+    # similarity codes can filter out trips that are points in valid_trips
     sim = similarity.similarity(valid_trips, radius)
     filter_trips = sim.data
     return filter_trips,sim,trips
 
+
+# to determine if the user is valid:
+# valid user should have >= 10 trips for further analysis and the proportion of filter_trips is >=50%
 def valid_user(filter_trips,trips):
     valid = False
     if len(filter_trips) >= 10 and len(filter_trips) / len(trips) >= 0.5:
         valid = True
     return valid
 
+
+# to map the user labels
+# - user_input_df: pass in original user input dataframe, return changed user input dataframe
+# - sp2en: change Spanish to English
+# - cvt_pur_mo: convert purposes and replaced mode
 def map_labels(user_input_df,sp2en,cvt_pur_mo):
     # Spanish words to English
     span_eng_dict = {'revisado_bike': 'test ride with bike', 'placas_de carro': 'car plates', 'aseguranza': 'insurance',
@@ -76,6 +89,8 @@ def map_labels(user_input_df,sp2en,cvt_pur_mo):
     return user_input_df
 
 
+# check if the user is valid
+# append NaN to the score lists when the user invalid
 def valid_user_check(filter_trips,trips,homo_score,comp_score,v_score):
     if not valid_user(filter_trips, trips):
         homo_score.append(NaN)
@@ -87,6 +102,7 @@ def valid_user_check(filter_trips,trips,homo_score,comp_score,v_score):
     return homo_score,comp_score,v_score,skip
 
 
+#  This function is to get homogeneity score, complete score, and v-score
 def compute_score(labels_true,labels_pred,homo_score,comp_score,v_score):
     homo = metrics.homogeneity_score(labels_true, labels_pred)
     homo_score.append(float('%.3f' % homo))
