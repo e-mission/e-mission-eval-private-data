@@ -113,6 +113,66 @@ def compute_score(labels_true,labels_pred,homo_score,comp_score,v_score):
     return homo_score,comp_score,v_score
 
 
+# This function is to compare a trip with a group of trips to see if they happened in a same day
+def match_day(trip,bin,filter_trips):
+    if bin:
+        t = filter_trips[bin[0]]
+        if trip['data']['start_local_dt']['year']==t['data']['start_local_dt']['year']\
+                and trip['data']['start_local_dt']['month']==t['data']['start_local_dt']['month']\
+                and trip['data']['start_local_dt']['day']==t['data']['start_local_dt']['day']:
+            return True
+    return False
+
+
+# This function is to compare a trip with a group of trips to see if they happened in a same month
+def match_month(trip,bin,filter_trips):
+    if bin:
+        t = filter_trips[bin[0]]
+        if trip['data']['start_local_dt']['year']==t['data']['start_local_dt']['year']\
+                and trip['data']['start_local_dt']['month']==t['data']['start_local_dt']['month']:
+            return True
+    return False
+
+
+# This function bins trips according to ['start_local_dt']
+def bin_date(trip_ls,filter_trips,day=None,month=None):
+    bin_date = []
+    for trip_index in trip_ls:
+        added = False
+        trip = filter_trips[trip_index]
+
+        for bin in bin_date:
+            if day:
+                if match_day(trip,bin,filter_trips):
+                    bin.append(trip_index)
+                    added = True
+                    break
+            if month:
+                if match_month(trip,bin,filter_trips):
+                    bin.append(trip_index)
+                    added = True
+                    break
+
+        if not added:
+            bin_date.append([trip_index])
+
+    return bin_date
+
+
+# compare the trip orders in bin_trips with those in filter_trips above cutoff
+def compare_trip_orders(bins,bin_trips,filter_trips):
+    # compare the trips order in bins and those in valid_trips using timestamp
+    bin_trips_ts = pd.DataFrame(data=[trip["data"]["start_ts"] for trip in bin_trips])
+    bin_ls = []
+    for bin in bins:
+        for index in bin:
+            bin_ls.append(index)
+    bins_ts = pd.DataFrame(data=[filter_trips[i]["data"]["start_ts"] for i in bin_ls])
+    # compare two data frames, the program will continue to score calculation if two data frames are the same
+    assert_frame_equal(bins_ts, bin_trips_ts)
+
+
+
 # v_measure_bins takes 5 parameters
 # - sp2en=True: change Spanish to English
 # - cvt_pur_mo=True: convert purposes and replaced mode
