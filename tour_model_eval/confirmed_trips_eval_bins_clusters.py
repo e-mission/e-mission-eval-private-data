@@ -172,6 +172,21 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
     assert_frame_equal(bins_ts, bin_trips_ts)
 
 
+def find_first_trip(filter_trips,bin):
+    early_trip = filter_trips[bin[0]]
+    index = 0
+    for i in range(1,len(bin)):
+        compare_trip = filter_trips[bin[i]]
+        if early_trip['data']["start_ts"] > compare_trip['data']["start_ts"]:
+            early_trip = compare_trip
+            index = i
+    early_trip_index = bin[index]
+    return early_trip_index, index
+
+
+
+
+
 
 # v_measure_bins takes 5 parameters
 # - sp2en=True: change Spanish to English
