@@ -5,10 +5,16 @@ import pandas as pd
 from sklearn.model_selection import KFold
 
 
+# read data that have user labels
+def read_data(user):
+    trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
+    return trips
+
+
 # - trips: all trips read from database
 # - filter_trips: valid trips that have user labels and are not points
 def filter_data(user,radius):
-    trips = pipeline.read_data(uuid=user, key=esda.CONFIRMED_TRIP_KEY)
+    trips = read_data(user)
     non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
     non_empty_trips_df = pd.DataFrame(t["data"]["user_input"] for t in non_empty_trips)
     valid_trips_df = non_empty_trips_df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=False)
@@ -41,13 +47,12 @@ def split_data(filter_trips):
 
 
 # collect a set of data(training/test set) after splitting
-# - splited_indices: pass in train set indices or test set indices
-def get_subdata(sim,train_test_set):
+def get_subdata(filter_trips,train_test_set):
     collect_sub_data = []
     for train_test_subset in train_test_set:
         sub_data = []
         for idx in train_test_subset:
-            sub_data.append(sim.data[idx])
+            sub_data.append(filter_trips[idx])
         collect_sub_data.append(sub_data)
     return collect_sub_data
 
