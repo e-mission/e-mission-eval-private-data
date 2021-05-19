@@ -43,10 +43,12 @@ def map_labels_mode(user_input_df):
 
 # this function will change Spanish to English, convert purposes, and convert modes
 def map_labels(user_input_df):
+    # Note that the spanish -> english conversion MUST currently happen before the other
+    # mode and purpose mappings
+    user_input_df = map_labels_sp2en(user_input_df)
     user_input_df = map_labels_purpose(user_input_df)
     user_input_df = map_labels_mode(user_input_df)
     return user_input_df
-
 
 # use hierarchical clustering to get labels of the second round
 # - sch.linkage: perform hierarchical(agglomerative) clustering
@@ -123,6 +125,5 @@ def change_track_labels(track,new_labels):
     for i in range(len(new_labels)):
         track[i][1] = new_labels[i]
     return track
-
 
 
