@@ -19,7 +19,7 @@ def get_user_ls(all_users,radius):
     for i in range(len(all_users)):
         curr_user = 'user' + str(i + 1)
         user = all_users[i]
-        filter_trips,sim,trips = preprocess.filter_data(user,radius)
+        filter_trips,trips = preprocess.filter_data(user,radius)
         if valid_user(filter_trips,trips):
             valid_user_ls.append(curr_user)
             user_ls.append(curr_user)
@@ -27,5 +27,4 @@ def get_user_ls(all_users,radius):
             user_ls.append(curr_user)
             continue
     return user_ls,valid_user_ls
-
 
