@@ -80,7 +80,6 @@ def get_second_labels(x,method,low,dist_pct):
 # (e.g. label from first round is 1, label from second round is 2, the new label will be 12)
 # - second_round_idx_labels: a list to store the indices and labels from the first round.
 # - second_labels: labels from the second round of clustering
-# We will use it as a "track" in the following.
 def get_new_labels(x,low,dist_pct,second_round_idx_labels,new_labels,method=None):
     second_labels = get_second_labels(x,method,low,dist_pct)
     for i in range(len(second_labels)):
