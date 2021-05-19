@@ -24,8 +24,6 @@ def map_labels_purpose(user_input_df):
     map_pur_dict = {'course': 'school', 'work_- lunch break': 'lunch_break', 'on_the way home': 'home',
                     'insurance_payment': 'insurance'}
 
-    # change language first
-    user_input_df = map_labels_sp2en(user_input_df)
     # convert purpose
     user_input_df = user_input_df.replace(map_pur_dict)
     return user_input_df
@@ -125,5 +123,4 @@ def change_track_labels(track,new_labels):
     for i in range(len(new_labels)):
         track[i][1] = new_labels[i]
     return track
-
 
