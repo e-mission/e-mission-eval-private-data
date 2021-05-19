@@ -19,7 +19,7 @@ def map_labels_sp2en(user_input_df):
 
 # to map purposes and replaced mode in user inputs
 # - cvt_pur_mo: convert purposes and replaced mode
-def map_labels_pur_mo(user_input_df):
+def map_labels_purpose(user_input_df):
     # Convert purpose
     map_pur_dict = {'course': 'school', 'work_- lunch break': 'lunch_break', 'on_the way home': 'home',
                     'insurance_payment': 'insurance'}
@@ -28,6 +28,10 @@ def map_labels_pur_mo(user_input_df):
     user_input_df = map_labels_sp2en(user_input_df)
     # convert purpose
     user_input_df = user_input_df.replace(map_pur_dict)
+    return user_input_df
+
+
+def map_labels_mode(user_input_df):
     # convert mode
     for a in range(len(user_input_df)):
         if user_input_df.iloc[a]["replaced_mode"] == "same_mode":
@@ -37,12 +41,20 @@ def map_labels_pur_mo(user_input_df):
     return user_input_df
 
 
+# this function will change Spanish to English, convert purposes, and convert modes
+def map_labels(user_input_df):
+    user_input_df = map_labels_purpose(user_input_df)
+    user_input_df = map_labels_mode(user_input_df)
+    return user_input_df
+
+
 # use hierarchical clustering to get labels of the second round
 # - sch.linkage: perform hierarchical(agglomerative) clustering
 # In this function, we set a low bound and a higher bound(cutoff) of distance in the dendrogram
 # - last_d: the distance of the last cluster in the dendrogram
 # - low: the lower bound of distance
-# e.g., if low = 300, last_d = 250, the list of clusters will be all 0s, like [0,0,0,0,0].
+# e.g., if low = 300, last_d = 250, we will assign 0s as labels for the points,
+# and the list of labels will be like [0,0,0,0,0].
 # It means the points are already similar to each other after the first round of clustering, they don't need to
 # go through the second round.
 # - max_d: the cutoff of distance
@@ -62,20 +74,22 @@ def get_second_labels(x,method,low,dist_pct):
     return clusters
 
 
-# this function includes hierarchical clustering and changing labels to get appropriate labels for
+# this function includes hierarchical clustering and changing labels from the first round to get appropriate labels for
 # the second round of clustering
 # appropriate labels are label from the first round concatenate label from the second round
 # (e.g. label from first round is 1, label from second round is 2, the new label will be 12)
-# - second_round_idx_labels: a track to store the indices and labels for the second round
+# - second_round_idx_labels: a list to store the indices and labels from the first round.
+# - second_labels: labels from the second round of clustering
+# We will use it as a "track" in the following.
 def get_new_labels(x,low,dist_pct,second_round_idx_labels,new_labels,method=None):
     second_labels = get_second_labels(x,method,low,dist_pct)
     for i in range(len(second_labels)):
-        index = second_round_idx_labels[i][0]
+        first_index = second_round_idx_labels[i][0]
         new_label = second_round_idx_labels[i][1]
         # concatenate labels from two rounds
         new_label = int(str(new_label) + str(second_labels[i]))
         for k in range(len(new_labels)):
-            if k == index:
+            if k == first_index:
                 new_labels[k] = new_label
                 break
     return new_labels
@@ -93,7 +107,7 @@ def group_similar_trips(new_labels,track):
                 break
         if not added:
             bin_sim_trips.append([trip_index])
-    # using track to replace the current indices with original indicies
+    # using track to replace the current indices with original indices
     for bin in bin_sim_trips:
         for i in range(len(bin)):
             bin[i] = track[bin[i]][0]

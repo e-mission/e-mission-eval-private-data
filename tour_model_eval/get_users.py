@@ -10,8 +10,9 @@ def valid_user(filter_trips,trips):
     return valid
 
 
-# - user_ls: a list of all users
+# - user_ls: a list of all users, like [user1, user2, user3...]
 # - valid_user_ls: a list of valid users
+# - all_users: the collection of all user id
 def get_user_ls(all_users,radius):
     user_ls = []
     valid_user_ls = []

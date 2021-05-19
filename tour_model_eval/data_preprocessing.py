@@ -24,7 +24,7 @@ def filter_data(user,radius):
     # similarity codes can filter out trips that are points in valid_trips
     sim = similarity.similarity(valid_trips, radius)
     filter_trips = sim.data
-    return filter_trips,sim,trips
+    return filter_trips,trips
 
 
 # use KFold (n_splits=5) to split the data into 5 models (5 training sets, 5 test sets)
