@@ -53,8 +53,8 @@ def map_labels(user_input_df):
 # In this function, we set a low bound and a higher bound(cutoff) of distance in the dendrogram
 # - last_d: the distance of the last cluster in the dendrogram
 # - low: the lower bound of distance
-# e.g., if low = 300, last_d = 250, we will assign 0s as labels for the points,
-# and the list of labels will be like [0,0,0,0,0].
+# e.g., if low = 300, last_d = 250, we will assign 0s as labels for the points, irrespective of the first round labels.
+# and the list of second round labels will be like [0,0,0,0,0].
 # It means the points are already similar to each other after the first round of clustering, they don't need to
 # go through the second round.
 # - max_d: the cutoff of distance
@@ -123,4 +123,3 @@ def change_track_labels(track,new_labels):
     for i in range(len(new_labels)):
         track[i][1] = new_labels[i]
     return track
-
