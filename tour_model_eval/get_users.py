@@ -10,9 +10,9 @@ def valid_user(filter_trips,trips):
     return valid
 
 
-# - user_ls: a list of all users, like [user1, user2, user3...]
-# - valid_user_ls: a list of valid users
-# - all_users: the collection of all user id
+# - user_ls: a list of strings representing short user names, such as [user1, user2, user3...]
+# - valid_user_ls: a subset of `user_ls` for valid users, so also string representation of user names
+# - all_users: a collection of all user ids, in terms of user id objects
 def get_user_ls(all_users,radius):
     user_ls = []
     valid_user_ls = []
@@ -27,6 +27,5 @@ def get_user_ls(all_users,radius):
             user_ls.append(curr_user)
             continue
     return user_ls,valid_user_ls
-
 
 
