@@ -24,8 +24,6 @@ def map_labels_purpose(user_input_df):
     map_pur_dict = {'course': 'school', 'work_- lunch break': 'lunch_break', 'on_the way home': 'home',
                     'insurance_payment': 'insurance'}
 
-    # change language first
-    user_input_df = map_labels_sp2en(user_input_df)
     # convert purpose
     user_input_df = user_input_df.replace(map_pur_dict)
     return user_input_df
@@ -43,18 +41,20 @@ def map_labels_mode(user_input_df):
 
 # this function will change Spanish to English, convert purposes, and convert modes
 def map_labels(user_input_df):
+    # Note that the spanish -> english conversion MUST currently happen before the other
+    # mode and purpose mappings
+    user_input_df = map_labels_sp2en(user_input_df)
     user_input_df = map_labels_purpose(user_input_df)
     user_input_df = map_labels_mode(user_input_df)
     return user_input_df
-
 
 # use hierarchical clustering to get labels of the second round
 # - sch.linkage: perform hierarchical(agglomerative) clustering
 # In this function, we set a low bound and a higher bound(cutoff) of distance in the dendrogram
 # - last_d: the distance of the last cluster in the dendrogram
 # - low: the lower bound of distance
-# e.g., if low = 300, last_d = 250, we will assign 0s as labels for the points,
-# and the list of labels will be like [0,0,0,0,0].
+# e.g., if low = 300, last_d = 250, we will assign 0s as labels for the points, irrespective of the first round labels.
+# and the list of second round labels will be like [0,0,0,0,0].
 # It means the points are already similar to each other after the first round of clustering, they don't need to
 # go through the second round.
 # - max_d: the cutoff of distance
@@ -122,6 +122,3 @@ def change_track_labels(track,new_labels):
     for i in range(len(new_labels)):
         track[i][1] = new_labels[i]
     return track
-
-
-
