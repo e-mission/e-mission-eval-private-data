@@ -97,20 +97,17 @@ def get_new_labels(x,low,dist_pct,second_round_idx_labels,new_labels,method=None
 # group similar trips according to new_labels, store the original indices of the trips
 def group_similar_trips(new_labels,track):
     bin_sim_trips = []
-    for trip_index,label in enumerate(new_labels):
-        added = False
-        for bin in bin_sim_trips:
-            if label == new_labels[bin[0]]:
-                bin.append(trip_index)
-                added = True
-                break
-        if not added:
-            bin_sim_trips.append([trip_index])
+    label_set = set(new_labels)
+    for sel_label in label_set:
+        bin = [index for (index, label) in enumerate(new_labels) if label == sel_label]
+        bin_sim_trips.append(bin)
+
     # using track to replace the current indices with original indices
     for bin in bin_sim_trips:
         for i in range(len(bin)):
             bin[i] = track[bin[i]][0]
     return bin_sim_trips
+
 
 
 # replace the first round labels with new labels
