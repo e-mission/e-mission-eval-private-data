@@ -97,8 +97,14 @@ def get_new_labels(x,low,dist_pct,second_round_idx_labels,new_labels,method=None
 # group similar trips according to new_labels, store the original indices of the trips
 def group_similar_trips(new_labels,track):
     bin_sim_trips = []
+
+    # find the unique set of bins and store their indices into `bin_sim_trips`
     label_set = set(new_labels)
     for sel_label in label_set:
+        # convert the set of unique labels into their indices
+        # concretely, if the input labels are ['a','a','a','b','b','b']
+        # the unique labels are ['a', 'b']
+        # the bin array is [0,0,0,1,1,1]
         bin = [index for (index, label) in enumerate(new_labels) if label == sel_label]
         bin_sim_trips.append(bin)
 
