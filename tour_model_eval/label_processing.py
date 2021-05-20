@@ -111,10 +111,14 @@ def group_similar_trips(new_labels,track):
     # At the end, bin_sim_trips_idx = [[0,1,2],[3,4,5]]
 
     # using track to replace the current indices with original indices
-    for bin in bin_sim_trips:
+    for bin in bin_sim_trips_idx:
+        # in the first iteration, bin = [0,1,2]
+        # in the first iteration of that, we map the trip index of the
+        # common trip (e.g. 0) to the original index for that trip from the track (e.g. 42)
         for i in range(len(bin)):
             bin[i] = track[bin[i]][0]
-    return bin_sim_trips
+    # At this point, the bin_sim_trips_idx will have original indices for the trips
+    return bin_sim_trips_idx
 
 
 
