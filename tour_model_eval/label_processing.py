@@ -100,13 +100,15 @@ def group_similar_trips(new_labels,track):
 
     # find the unique set of bins and store their indices into `bin_sim_trips`
     label_set = set(new_labels)
+    # convert the set of unique labels into their indices
+    # concretely, if the input labels are ['a','a','a','b','b','b']
+    # the unique labels are ['a', 'b']
     for sel_label in label_set:
-        # convert the set of unique labels into their indices
-        # concretely, if the input labels are ['a','a','a','b','b','b']
-        # the unique labels are ['a', 'b']
-        # the bin array is [0,0,0,1,1,1]
+        # for the first iteration, bin = [0,1,2]
+        # for the second iteration, bin = [3,4,5]
         bin = [index for (index, label) in enumerate(new_labels) if label == sel_label]
-        bin_sim_trips.append(bin)
+        bin_sim_trips_idx.append(bin)
+    # At the end, bin_sim_trips_idx = [[0,1,2],[3,4,5]]
 
     # using track to replace the current indices with original indices
     for bin in bin_sim_trips:
