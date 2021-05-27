@@ -27,7 +27,7 @@ def filter_data(user,radius):
 
 
 # use KFold (n_splits=5) to split the data into 5 models (5 training sets, 5 test sets)
-def split_data(filter_trips):
+def extract_features(filter_trips):
     X = []
     for trip in filter_trips:
         start = trip.data.start_loc["coordinates"]
@@ -54,5 +54,4 @@ def get_subdata(filter_trips,train_test_set):
             sub_data.append(filter_trips[idx])
         collect_sub_data.append(sub_data)
     return collect_sub_data
-
 
