@@ -22,7 +22,7 @@ def filter_data(user,radius):
     valid_trips = [non_empty_trips[i]for i in valid_trips_idx_ls]
 
     # similarity codes can filter out trips that are points in valid_trips
-    filter_trips,_ = similarity.similarity.filter_distance(valid_trips, radius)
+    filter_trips = similarity.filter_too_short(valid_trips, radius)
     return filter_trips,trips
 
 
