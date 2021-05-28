@@ -2,16 +2,15 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 import label_processing as label_pro
 from sklearn import metrics
+import itertools
+
 
 
 
 # compare the trip orders in bin_trips with those in filter_trips above cutoff
 def compare_trip_orders(bins,bin_trips,filter_trips):
     bin_trips_ts = pd.DataFrame(data=[trip["data"]["start_ts"] for trip in bin_trips])
-    bin_ls = []
-    for bin in bins:
-        for index in bin:
-            bin_ls.append(index)
+    bin_ls = list(itertools.chain(*bins))
     bins_ts = pd.DataFrame(data=[filter_trips[i]["data"]["start_ts"] for i in bin_ls])
     # compare two data frames, the program will continue to score calculation if two data frames are the same
     assert_frame_equal(bins_ts, bin_trips_ts)
@@ -20,7 +19,7 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
 # This function is to get homogeneity score after the first/second round of clustering
 # It is based on bin_trips, which are common trips. bin_trips are collected according to the indices in bins
 # More info about bin_trips is in similarity.py (delete_bins)
-def score(bin_trips, filter_trips, labels_pred):
+def score(bin_trips, labels_pred):
     bin_trips_user_input_df = pd.DataFrame(data=[trip["data"]["user_input"] for trip in bin_trips])
     bin_trips_user_input_df = label_pro.map_labels(bin_trips_user_input_df)
 

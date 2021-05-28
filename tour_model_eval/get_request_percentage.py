@@ -1,5 +1,6 @@
 import label_processing as label_pro
 
+
 # This function is to compare a trip with a group of trips to see if they happened in a same day
 def match_day(trip,bin,filter_trips):
     if bin:
@@ -47,15 +48,12 @@ def bin_date(trip_ls,filter_trips,day=None,month=None):
 
 
 def find_first_trip(filter_trips,bin):
-    early_trip = filter_trips[bin[0]]
-    index = 0
-    for i in range(1,len(bin)):
-        compare_trip = filter_trips[bin[i]]
-        if early_trip['data']["start_ts"] > compare_trip['data']["start_ts"]:
-            early_trip = compare_trip
-            index = i
-    early_trip_index = bin[index]
-    return early_trip_index, index
+    trip_ts = [filter_trips[trip_idx]['data']["start_ts"] for trip_idx in bin]
+    # - early_idx_in_bin: the earliest trip position in the bin
+    early_idx_in_bin = trip_ts.index(min(trip_ts))
+    # - early_trip_index: the original index of the earliest trip
+    early_trip_index = bin[early_idx_in_bin]
+    return early_trip_index, early_idx_in_bin
 
 
 # collect requested trips and common trips(no need to request) indices above cutoff
@@ -65,11 +63,14 @@ def requested_trips_ab_cutoff(new_bins, filter_trips):
     # collect common trip indices above cutoff
     no_req_trip_ls = []
     for bin in new_bins:
-        early_trip_index, index = find_first_trip(filter_trips, bin)
+        early_trip_index, early_idx_in_bin = find_first_trip(filter_trips, bin)
         ab_trip_ls.append(early_trip_index)
 
+        # The following loop collects the original indices of the rest of the trips in the bin. Since they are not the
+        # earliest one, we don't need to request for user labels
         for k in range(len(bin)):
-            if k != index:
+            if k != early_idx_in_bin:
+                # - no_req_trip_idx: the original index of the trip that is not requested for user labels
                 no_req_trip_idx = bin[k]
                 no_req_trip_ls.append(no_req_trip_idx)
     return ab_trip_ls, no_req_trip_ls
@@ -81,10 +82,13 @@ def requested_trips_bl_cutoff(sim):
     bl_bins = sim.below_cutoff
 
     # collect requested trips indices below cutoff
-    bl_trip_ls = []
-    for bin in bl_bins:
-        for trip_index in bin:
-            bl_trip_ls.append(trip_index)
+    # effectively, bl_trip_ls = flatten(bl_bins)
+    # >>> bl_bins = [[1,2],[3,4],[5,6]]
+    # >>> bl_trip_ls = [item for sublist in bl_bins for item in sublist]
+    # >>> bl_trip_ls
+    # [1, 2, 3, 4, 5, 6]
+    # the reason for flattening: add here the reason why you want to flatten the list
+    bl_trip_ls = [item for sublist in bl_bins for item in sublist]
     return bl_trip_ls
 
 
@@ -97,8 +101,16 @@ def get_requested_trips(new_bins,filter_trips,sim):
 
 
 # get request percentage based on the number of requested trips and the total number of trips
-def get_req_pct(new_labels,track,filter_trips):
-    # - new_bins: bins with original indices of similar trips
+def get_req_pct(new_labels,track,filter_trips,sim):
+    # - new_bins: bins with original indices of similar trips from common trips
+    # - new_label: For the first round, new_label is the copy of the first round labels, e.g. [1,1,1,2,2,2].
+    # For the second round, new_label is that the first round label concatenate the second round label.
+    # e.g.the label from the second round is [1,2,1,2,3,3], new_label will turn to [11,12,11,22,23,23]
+    # - track: at this point, each item in the track contains the original index of a trip,
+    # and the latest label of it. e.g. [ori_idx, latest_label]
+    # concretely, please look at "group_similar_trips" function in label_processing.py
+    # If new_label is [11,12,11,22,23,23] and the original indices of the trips is [1,2,3,4,5,6],
+    # new_bins will be [[1,3],[2],[4],[5,6]]
     new_bins = label_pro.group_similar_trips(new_labels,track)
     req_trips = get_requested_trips(new_bins,filter_trips,sim)
     pct = len(req_trips)/len(filter_trips)
