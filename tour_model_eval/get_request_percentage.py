@@ -52,6 +52,9 @@ def bin_date(trip_ls,filter_trips,day=None,month=None):
 def find_first_trip(filter_trips,bin):
     trip_ts = [filter_trips[trip_idx]['data']["start_ts"] for trip_idx in bin]
     # - early_idx_in_bin: the earliest trip position in the bin
+    # ts = [20,10,40,5,100]
+    # early_idx_in_bin = 3
+    # early trip_index = 5
     early_idx_in_bin = trip_ts.index(min(trip_ts))
     # - early_trip_index: the original index of the earliest trip
     early_trip_index = bin[early_idx_in_bin]
