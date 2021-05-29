@@ -1,4 +1,6 @@
 import label_processing as label_pro
+import copy
+import itertools
 
 
 # This function is to compare a trip with a group of trips to see if they happened in a same day
@@ -68,11 +70,13 @@ def requested_trips_ab_cutoff(new_bins, filter_trips):
 
         # The following loop collects the original indices of the rest of the trips in the bin. Since they are not the
         # earliest one, we don't need to request for user labels
-        for k in range(len(bin)):
-            if k != early_idx_in_bin:
-                # - no_req_trip_idx: the original index of the trip that is not requested for user labels
-                no_req_trip_idx = bin[k]
-                no_req_trip_ls.append(no_req_trip_idx)
+        # >>> x = [100,200,300]
+        # >>> x.remove(100); x
+        # [200, 300]
+        no_req_trip_subls = copy.copy(bin)
+        no_req_trip_subls.remove(early_trip_index)
+        no_req_trip_ls.append(no_req_trip_subls)
+    no_req_trip_ls = list(itertools.chain(*no_req_trip_ls))
     return ab_trip_ls, no_req_trip_ls
 
 
@@ -87,16 +91,23 @@ def requested_trips_bl_cutoff(sim):
     # >>> bl_trip_ls = [item for sublist in bl_bins for item in sublist]
     # >>> bl_trip_ls
     # [1, 2, 3, 4, 5, 6]
-    # the reason for flattening: add here the reason why you want to flatten the list
+    # the reason for flattening: we need to have a whole flatten list of requested trips, then compute the percentage
     bl_trip_ls = [item for sublist in bl_bins for item in sublist]
     return bl_trip_ls
 
 
 # a list of all requested trips indices
+# - filter_trips: we need to use timestamp in filter_trips here,
+# in requested_trips_ab_cutoff, we need to get the first trip of the bin,
+# and we need to collect original trip indices from filter_trips
+# - sim: we need to use code in similarity to find trips below cutoff
+# Since the indices from similarity code are original (trips below cutoff),
+# we need to have original indices of all requested trips,
+# so we use filter_trips for finding the requested common trips
 def get_requested_trips(new_bins,filter_trips,sim):
     ab_trip_ls,no_req_trip_ls = requested_trips_ab_cutoff(new_bins,filter_trips)
     bl_trip_ls = requested_trips_bl_cutoff(sim)
-    req_trips_ls=ab_trip_ls+bl_trip_ls
+    req_trips_ls = ab_trip_ls+bl_trip_ls
     return req_trips_ls
 
 

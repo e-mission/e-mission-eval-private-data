@@ -5,8 +5,6 @@ from sklearn import metrics
 import itertools
 
 
-
-
 # compare the trip orders in bin_trips with those in filter_trips above cutoff
 def compare_trip_orders(bins,bin_trips,filter_trips):
     bin_trips_ts = pd.DataFrame(data=[trip["data"]["start_ts"] for trip in bin_trips])
@@ -31,6 +29,11 @@ def score(bin_trips, labels_pred):
     no_dup_list = no_dup_df.values.tolist()
 
     # collect labels_true based on user_input
+    # To compute labels_true, we need to find out non-duplicate user labels, and use the index of the unique user label
+    # to label the whole trips
+    # if user labels are [home, work, home, home, work, exercise], the unique label list is [0,1,2],
+    # labels_true will be [0,1,0,0,1,2]
+    # labels_pred is the flattened list of labels of all common trips, e.g.[1,1,11,12,13,22,23]
     labels_true = []
     for trip in bin_trips_user_input_ls:
         if trip in no_dup_list:
