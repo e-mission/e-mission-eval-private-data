@@ -35,9 +35,9 @@ def score(bin_trips, labels_pred):
     # labels_true will be [0,1,0,0,1,2]
     # labels_pred is the flattened list of labels of all common trips, e.g.[1,1,11,12,13,22,23]
     labels_true = []
-    for trip in bin_trips_user_input_ls:
-        if trip in no_dup_list:
-            labels_true.append(no_dup_list.index(trip))
+    for userinput_dict in bin_trips_user_input_ls:
+        if userinput_dict in no_dup_list:
+            labels_true.append(no_dup_list.index(userinput_dict))
 
     labels_pred = labels_pred
     homo_score = skm.homogeneity_score(labels_true, labels_pred)
