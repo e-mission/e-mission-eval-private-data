@@ -11,7 +11,7 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
     bin_ls = list(itertools.chain(*bins))
     bins_ts = pd.DataFrame(data=[filter_trips[i]["data"]["start_ts"] for i in bin_ls])
     # compare two data frames, the program will continue to score calculation if two data frames are the same
-    assert_frame_equal(bins_ts, bin_trips_ts)
+    pdt.assert_frame_equal(bins_ts, bin_trips_ts)
 
 
 # This function is to get homogeneity score after the first/second round of clustering
