@@ -1,5 +1,5 @@
 import pandas as pd
-from pandas.testing import assert_frame_equal
+import pandas.testing as pdt
 import label_processing as label_pro
 import sklearn.metrics as skm
 import itertools
