@@ -40,5 +40,5 @@ def score(bin_trips, labels_pred):
             labels_true.append(no_dup_list.index(trip))
 
     labels_pred = labels_pred
-    homo_score = metrics.homogeneity_score(labels_true, labels_pred)
+    homo_score = skm.homogeneity_score(labels_true, labels_pred)
     return homo_score
