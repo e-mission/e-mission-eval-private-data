@@ -25,15 +25,19 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
 # This can break in two ways:
 # user label A maps to different clusters - e.g. ["A", "A", "A"] maps to [1,2,3].
 # In this case, the homogeneity score will still be 1.0, since each cluster only has label "A".
-# For our use case, this is fine because the number of clusters depends on the Euclidean distance of the feature points,
-# which are extracted from trips, in multi-dimension. If trips with same user labels are far away from each other in the
-# multi-dimension, they will be separated in different clusters according to to cutoff. They could be separated in three
-# clusters. The reason is that they might have very different trajectory distance or duration.
-# We capture this difference through the request percentage metric, which will result in three queries for [1,2,3]
-# and only one for [1,1,1]
+# For our problem, this would typically map to the use case where trips with same user labels are actually to different 
+# destinations. For `medical` or `personal` locations, for example, users could actually go to multiple medical 
+# facilities or friends' houses. In this case, the trips will be in different clusters, but since the destinations are in 
+# fact different, this would actually be the correct behavior.
+# The trips could also be to the same location, but be clustered differently due to minor variations in duration or 
+# distance (maybe due to traffic conditions). This could result in multiple clusters for what is essentially the same 
+# trip. We capture this difference through the request percentage metric, which will result in three queries for 
+# [1,2,3] and only one for [1,1,1]
 # two different labels map to the same cluster - e.g. ["A", "A", "B"] maps to [1,1,1]. This is the case captured by the
 # homogeneity score, which will be less than 1.0 (0 representes inhomogeneous, 1.0 represents homogeneous).
-# This maps well to our use case because in this case the trips might have similar feature points.
+# This maps well to our use case because in this case, assigning the same label to all trips in the cluster would
+# be incorrect. In particular, if we did not have the ground truth, the third trip would be labeled "A", 
+# which would lower the accuracy.
 # At this point, we didn't make user_input have same labels for labels_true and labels_pred.
 # For example, in the second round, user labels are [("home", "ebike", "bus"),("home", "walk", "bus"),
 # ("home", "ebike", "bus")], the labels_pred can be [0,1,0], or [1,0,1] or represented by other numeric labels.
