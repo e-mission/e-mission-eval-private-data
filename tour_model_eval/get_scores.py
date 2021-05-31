@@ -18,14 +18,12 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
 # It is based on bin_trips, which are common trips. bin_trips are collected according to the indices of the trips
 # in bins above cutoff
 # More info about bin_trips is in similarity.py (delete_bins)
-# For mapping the labels, in one cluster, we do have trips with user labels.
-# There are only two situations - trips are grouped in one cluster or the single trip in one cluster.
-# Ideally, we should have labels [11,11,11] for trips in one cluster after the second round.
-# In such a cluster, we should already have 1 or 2 trips that have user labels, the third one is predicted.
-# Then we label it with the same user labels as the previous two.
-# We don't have 1.0 homogeneity score for most of the cluster. It can also be [11,11,12].
-# Then for the third one, we will still label it with the same user labels as the previous two
-# (since they are in one cluster).
+# The homogeneity score reflects the degree to which a cluster consists only of trips with similar ground truthed labels.
+# The labels can be drawn from different sets as long as the mapping is unique (e.g. ["A", "A", "C"] matches perfectly
+# with [0,0,1]). Similar ground truthed trips can end up in different clusters and still get a perfect score;
+# the metric only checks whether a cluster is homogenous, not whether it is complete. Concretely, ["A", "A", "A", "C"] matches perfectly with [0,0,1,2] because although the trips for A are split between clusters 0 and 1, each cluster only has trips labeled A.
+# For our use case, this is fine because... please fill in here.
+# We use the request percentage metric to check the completeness of the clusters.
 # At this point, we didn't make user_input have same labels for labels_true and labels_pred.
 # For example, in the second round, user labels are [("home", "ebike", "bus"),("home", "walk", "bus"),
 # ("home", "ebike", "bus")], the labels_pred can be [0,1,0], or [1,0,1] or represented by other numeric labels.
