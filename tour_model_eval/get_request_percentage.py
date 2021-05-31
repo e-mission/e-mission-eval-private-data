@@ -78,8 +78,10 @@ def requested_trips_ab_cutoff(new_bins, filter_trips):
         # [200, 300]
         no_req_trip_subls = copy.copy(bin)
         no_req_trip_subls.remove(early_trip_index)
-        no_req_trip_ls.append(no_req_trip_subls)
-    no_req_trip_ls = list(itertools.chain(*no_req_trip_ls))
+        # >>> x = [1,2,3]
+        # >>> x.extend([4,5,6]); x
+        # [1, 2, 3, 4, 5, 6]
+        no_req_trip_ls.extend(no_req_trip_subls)
     return ab_trip_ls, no_req_trip_ls
 
 

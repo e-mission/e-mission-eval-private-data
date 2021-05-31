@@ -1,7 +1,7 @@
 import pandas as pd
-from pandas.testing import assert_frame_equal
+import pandas.testing as pdt
 import label_processing as label_pro
-from sklearn import metrics
+import sklearn.metrics as skm
 import itertools
 
 
@@ -11,7 +11,7 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
     bin_ls = list(itertools.chain(*bins))
     bins_ts = pd.DataFrame(data=[filter_trips[i]["data"]["start_ts"] for i in bin_ls])
     # compare two data frames, the program will continue to score calculation if two data frames are the same
-    assert_frame_equal(bins_ts, bin_trips_ts)
+    pdt.assert_frame_equal(bins_ts, bin_trips_ts)
 
 
 # This function is to get homogeneity score after the first/second round of clustering
@@ -49,10 +49,10 @@ def score(bin_trips, labels_pred):
     # the unique label list is [0,1,2], labels_true will be [0,1,0,0,1,2]
     # labels_pred is the flattened list of labels of all common trips, e.g.[1,1,11,12,13,22,23]
     labels_true = []
-    for trip in bin_trips_user_input_ls:
-        if trip in no_dup_list:
-            labels_true.append(no_dup_list.index(trip))
+    for userinput_dict in bin_trips_user_input_ls:
+        if userinput_dict in no_dup_list:
+            labels_true.append(no_dup_list.index(userinput_dict))
 
     labels_pred = labels_pred
-    homo_score = metrics.homogeneity_score(labels_true, labels_pred)
+    homo_score = skm.homogeneity_score(labels_true, labels_pred)
     return homo_score
