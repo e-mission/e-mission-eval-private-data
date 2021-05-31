@@ -58,7 +58,7 @@ def find_first_trip(filter_trips,bin):
     early_idx_in_bin = trip_ts.index(min(trip_ts))
     # - early_trip_index: the original index of the earliest trip
     early_trip_index = bin[early_idx_in_bin]
-    return early_trip_index, early_idx_in_bin
+    return early_trip_index
 
 
 # collect requested trips and common trips(no need to request) indices above cutoff
@@ -68,7 +68,7 @@ def requested_trips_ab_cutoff(new_bins, filter_trips):
     # collect common trip indices above cutoff
     no_req_trip_ls = []
     for bin in new_bins:
-        early_trip_index, early_idx_in_bin = find_first_trip(filter_trips, bin)
+        early_trip_index = find_first_trip(filter_trips, bin)
         ab_trip_ls.append(early_trip_index)
 
         # The following loop collects the original indices of the rest of the trips in the bin. Since they are not the
@@ -107,6 +107,7 @@ def requested_trips_bl_cutoff(sim):
 # Since the indices from similarity code are original (trips below cutoff),
 # we need to have original indices of all requested trips,
 # so we use filter_trips for finding the requested common trips
+# new_bins: bins that have original indices of similar trips. They only represent common trips
 def get_requested_trips(new_bins,filter_trips,sim):
     ab_trip_ls,no_req_trip_ls = requested_trips_ab_cutoff(new_bins,filter_trips)
     bl_trip_ls = requested_trips_bl_cutoff(sim)
