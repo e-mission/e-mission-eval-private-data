@@ -20,10 +20,11 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
 # More info about bin_trips is in similarity.py (delete_bins)
 # The homogeneity score reflects the degree to which a cluster consists only of trips with similar ground truthed labels.
 # The labels can be drawn from different sets as long as the mapping is unique (e.g. ["A", "A", "C"] matches perfectly
-# with [0,0,1]). Similar ground truthed trips can end up in different clusters and still get a perfect score;
-# the metric only checks whether a cluster is homogenous, not whether it is complete. Concretely, ["A", "A", "A", "C"] matches perfectly with [0,0,1,2] because although the trips for A are split between clusters 0 and 1, each cluster only has trips labeled A.
-# For our use case, this is fine because... please fill in here.
-# We use the request percentage metric to check the completeness of the clusters.
+# with [0,0,1]). 
+# Ideally, there would be 1:1 mapping between labels and clusters - e.g. ["A", "A", "A"] maps to [1,1,1]
+# This can break in two ways:
+# label A maps to two different clusters - e.g. ["A", "A", "A"] maps to [1,2,3]. In this case, the homogeneity score will still be 1.0, since each cluster only has label "A". For our use case, this is fine because... **please fill in here**. We capture this difference through the request percentage metric, which will result in three queries for [1,2,3] and only one for [1,1,1]
+# two different labels map to the same cluster - e.g. ["A", "A", "B"] maps to [1,1,1]. This is the case captured by the homogeneity score, which will be .... **please fill in here**. This maps well to our use case because in this case... **add short (1 sentence) explanation of bad labeling here**.
 # At this point, we didn't make user_input have same labels for labels_true and labels_pred.
 # For example, in the second round, user labels are [("home", "ebike", "bus"),("home", "walk", "bus"),
 # ("home", "ebike", "bus")], the labels_pred can be [0,1,0], or [1,0,1] or represented by other numeric labels.
