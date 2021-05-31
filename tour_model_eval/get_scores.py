@@ -23,8 +23,17 @@ def compare_trip_orders(bins,bin_trips,filter_trips):
 # with [0,0,1]). 
 # Ideally, there would be 1:1 mapping between labels and clusters - e.g. ["A", "A", "A"] maps to [1,1,1]
 # This can break in two ways:
-# label A maps to two different clusters - e.g. ["A", "A", "A"] maps to [1,2,3]. In this case, the homogeneity score will still be 1.0, since each cluster only has label "A". For our use case, this is fine because... **please fill in here**. We capture this difference through the request percentage metric, which will result in three queries for [1,2,3] and only one for [1,1,1]
-# two different labels map to the same cluster - e.g. ["A", "A", "B"] maps to [1,1,1]. This is the case captured by the homogeneity score, which will be .... **please fill in here**. This maps well to our use case because in this case... **add short (1 sentence) explanation of bad labeling here**.
+# user label A maps to different clusters - e.g. ["A", "A", "A"] maps to [1,2,3].
+# In this case, the homogeneity score will still be 1.0, since each cluster only has label "A".
+# For our use case, this is fine because the number of clusters depends on the Euclidean distance of the feature points,
+# which are extracted from trips, in multi-dimension. If trips with same user labels are far away from each other in the
+# multi-dimension, they will be separated in different clusters according to to cutoff. They could be separated in three
+# clusters. The reason is that they might have very different trajectory distance or duration.
+# We capture this difference through the request percentage metric, which will result in three queries for [1,2,3]
+# and only one for [1,1,1]
+# two different labels map to the same cluster - e.g. ["A", "A", "B"] maps to [1,1,1]. This is the case captured by the
+# homogeneity score, which will be less than 1.0 (0 representes inhomogeneous, 1.0 represents homogeneous).
+# This maps well to our use case because in this case the trips might have similar feature points.
 # At this point, we didn't make user_input have same labels for labels_true and labels_pred.
 # For example, in the second round, user labels are [("home", "ebike", "bus"),("home", "walk", "bus"),
 # ("home", "ebike", "bus")], the labels_pred can be [0,1,0], or [1,0,1] or represented by other numeric labels.
