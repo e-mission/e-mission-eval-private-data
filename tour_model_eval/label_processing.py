@@ -61,6 +61,7 @@ def map_labels(user_input_df):
 # - dist_pct: the percentage of the last distance in the dendrogram
 # - sch.fcluster: form clusters from the hierarchical clustering defined by the given linkage matrix
 # e.g., if last_d = 10000, dist_pct = 0.4, max_d = 400, clusters will be assigned at the distance of 400
+# - clusters: the labels from the second round clustering
 def get_second_labels(x,method,low,dist_pct):
     z = sch.linkage(x, method=method, metric='euclidean')
     last_d = z[-1][2]
@@ -80,8 +81,7 @@ def get_second_labels(x,method,low,dist_pct):
 # (e.g. label from first round is 1, label from second round is 2, the new label will be 12)
 # - second_round_idx_labels: a list to store the indices and labels from the first round.
 # - second_labels: labels from the second round of clustering
-def get_new_labels(x,low,dist_pct,second_round_idx_labels,new_labels,method=None):
-    second_labels = get_second_labels(x,method,low,dist_pct)
+def get_new_labels(second_labels,second_round_idx_labels,new_labels):
     for i in range(len(second_labels)):
         first_index = second_round_idx_labels[i][0]
         new_label = second_round_idx_labels[i][1]

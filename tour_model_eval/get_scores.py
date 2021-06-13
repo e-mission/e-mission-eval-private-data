@@ -68,4 +68,5 @@ def score(bin_trips, labels_pred):
 
     labels_pred = labels_pred
     homo_score = skm.homogeneity_score(labels_true, labels_pred)
+    homo_score = float('%.3f' % homo_score)
     return homo_score

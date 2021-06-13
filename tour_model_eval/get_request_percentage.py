@@ -131,4 +131,5 @@ def get_req_pct(new_labels,track,filter_trips,sim):
     new_bins = label_pro.group_similar_trips(new_labels,track)
     req_trips = get_requested_trips(new_bins,filter_trips,sim)
     pct = len(req_trips)/len(filter_trips)
+    pct = float('%.3f' % pct)
     return pct

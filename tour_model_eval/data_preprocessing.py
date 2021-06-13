@@ -13,8 +13,7 @@ def read_data(user):
 
 # - trips: all trips read from database
 # - filter_trips: valid trips that have user labels and are not points
-def filter_data(user,radius):
-    trips = read_data(user)
+def filter_data(trips,radius):
     non_empty_trips = [t for t in trips if t["data"]["user_input"] != {}]
     non_empty_trips_df = pd.DataFrame(t["data"]["user_input"] for t in non_empty_trips)
     valid_trips_df = non_empty_trips_df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=False)
@@ -23,7 +22,7 @@ def filter_data(user,radius):
 
     # similarity codes can filter out trips that are points in valid_trips
     filter_trips = similarity.filter_too_short(valid_trips, radius)
-    return filter_trips,trips
+    return filter_trips
 
 
 # use KFold (n_splits=5) to split the data into 5 models (5 training sets, 5 test sets)
