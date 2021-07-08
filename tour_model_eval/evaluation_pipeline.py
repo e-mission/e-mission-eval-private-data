@@ -1,10 +1,9 @@
 import emission.analysis.modelling.tour_model.similarity as similarity
 import numpy as np
-import get_request_percentage as grp
-import get_scores as gs
-import label_processing as lp
-import data_preprocessing as preprocess
-import get_tuning_score as tuning
+import emission.analysis.modelling.tour_model.get_request_percentage as grp
+import emission.analysis.modelling.tour_model.get_scores as gs
+import emission.analysis.modelling.tour_model.label_processing as lp
+import emission.analysis.modelling.tour_model.data_preprocessing as preprocess
 
 def second_round(first_label_set,first_labels,bin_trips,filter_trips,low,dist_pct,sim,new_labels,track):
     for l in first_label_set:
@@ -78,81 +77,63 @@ def get_track(bins, first_labels):
     return idx_labels_track
 
 
-def init_score():
-    # collect request percentage for a user for the first round
-    pct_collect_first = []
-    # collect homogeneity score for a user for the first round
-    homo_collect_first = []
-    # collect request percentage for a user for the second round
-    pct_collect_second = []
-    # collect homogeneity score for a user for the second round
-    homo_collect_second = []
-    return pct_collect_first,homo_collect_first,pct_collect_second,homo_collect_second
+def tune(data,radius):
+    sim, bins, bin_trips, filter_trips = first_round(data, radius)
+    # it is possible that we don't have common trips for tuning or testing
+    # bins contain common trips indices
+    if len(bins) is not 0:
+        gs.compare_trip_orders(bins, bin_trips, filter_trips)
+        first_labels = get_first_label(bins)
+        # new_labels temporary stores the labels from the first round, but later the labels in new_labels will be
+        # updated with the labels after two rounds of clustering.
+        new_labels = first_labels.copy()
+        first_label_set = list(set(first_labels))
+        track = get_track(bins, first_labels)
+        # collect tuning scores and parameters
+        tune_score = {}
+        for dist_pct in np.arange(0.15, 0.6, 0.02):
+            for low in range(250, 600):
+                percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips,
+                                                              low, dist_pct,
+                                                              sim, new_labels, track)
+
+                curr_score = gs.get_score(homo_second, percentage_second)
+                if curr_score not in tune_score:
+                    tune_score[curr_score] = (low, dist_pct, homo_second, percentage_second)
+
+        best_score = max(tune_score)
+        sel_tradeoffs = tune_score[best_score][0:2]
+    else:
+        sel_tradeoffs = (0,0)
+
+    return sel_tradeoffs
 
 
-def tuning_test(data,radius,pct_collect_first,homo_collect_first,pct_collect_second,homo_collect_second,coll_tradeoffs,
-                coll_tune_score,tune=None, test=None):
-
-    # run every subset
-    for j in range(len(data)):
-        sim,bins,bin_trips,filter_trips = first_round(data[j], radius)
-        # it is possible that we don't have common trips for tuning or testing
-        # bins contain common trips indices
-        if len(bins) is not 0:
-            gs.compare_trip_orders(bins, bin_trips, filter_trips)
-            first_labels = get_first_label(bins)
-            # new_labels temporary stores the labels from the first round, but later the labels in new_labels will be
-            # updated with the labels after two rounds of clustering.
-            new_labels = first_labels.copy()
-            first_label_set = list(set(first_labels))
-            track = get_track(bins, first_labels)
-            # get request percentage for the subset for the first round
-            percentage_first = grp.get_req_pct(new_labels, track, filter_trips, sim)
-            # get homogeneity score for the subset for the first round
-            homo_first = gs.score(bin_trips, first_labels)
-            pct_collect_first.append(percentage_first)
-            homo_collect_first.append(homo_first)
-
-            if tune:
-                # collect tuning scores and parameters
-                tune_score = {}
-
-                for dist_pct in np.arange(0.15, 0.6, 0.02):
-                    for low in range(250, 600):
-                        percentage_second,homo_second = second_round(first_label_set,first_labels,bin_trips,filter_trips,low,dist_pct,
-                                                                     sim,new_labels,track)
-
-                        curr_score = tuning.get_tuning_score(homo_second,percentage_second)
-                        if curr_score not in tune_score:
-                            tune_score[curr_score] = (low, dist_pct, homo_second, percentage_second)
-
-                best_score = max(tune_score)
-                coll_tune_score.append(best_score)
-                sel_tradeoffs = tune_score[best_score]
-
-                coll_tradeoffs.append(sel_tradeoffs[0:2])
-                homo_collect_second.append(sel_tradeoffs[2])
-                pct_collect_second.append(sel_tradeoffs[3])
-
-            if test:
-                low = coll_tradeoffs[j][0]
-                dist_pct = coll_tradeoffs[j][1]
-                percentage_second, homo_second = second_round(first_label_set,first_labels,bin_trips,filter_trips,low,
-                                                              dist_pct,sim,new_labels,track)
-                homo_collect_second.append(homo_second)
-                pct_collect_second.append(percentage_second)
-                coll_tune_score = []
-        else:
-            percentage_first = 1
-            homo_first = 1
-            pct_collect_first.append(percentage_first)
-            homo_collect_first.append(homo_first)
-            coll_tradeoffs.append((0,0))
-            homo_collect_second.append(1)
-            pct_collect_second.append(1)
-            coll_tune_score.append(None)
-
-    return pct_collect_first,homo_collect_first,pct_collect_second,homo_collect_second,coll_tradeoffs,coll_tune_score
+def test(data,radius,low,dist_pct):
+    sim, bins, bin_trips, filter_trips = first_round(data, radius)
+    # it is possible that we don't have common trips for tuning or testing
+    # bins contain common trips indices
+    if len(bins) is not 0:
+        gs.compare_trip_orders(bins, bin_trips, filter_trips)
+        first_labels = get_first_label(bins)
+        # new_labels temporary stores the labels from the first round, but later the labels in new_labels will be
+        # updated with the labels after two rounds of clustering.
+        new_labels = first_labels.copy()
+        first_label_set = list(set(first_labels))
+        track = get_track(bins, first_labels)
+        # get request percentage for the subset for the first round
+        percentage_first = grp.get_req_pct(new_labels, track, filter_trips, sim)
+        # get homogeneity score for the subset for the first round
+        homo_first = gs.score(bin_trips, first_labels)
+        percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips, low,
+                                                      dist_pct, sim, new_labels, track)
+    else:
+        percentage_first = 1
+        homo_first = 1
+        percentage_second = 1
+        homo_second = 1
+    scores = gs.get_score(homo_second, percentage_second)
+    return homo_first,percentage_first,homo_second,percentage_second,scores
 
 
 def main(uuid = None):
@@ -163,17 +144,29 @@ def main(uuid = None):
     tune_idx, test_idx = preprocess.split_data(filter_trips)
     tune_data = preprocess.get_subdata(filter_trips, test_idx)
     test_data = preprocess.get_subdata(filter_trips, tune_idx)
-    pct_collect_first, homo_collect_first, pct_collect_second, homo_collect_second = init_score()
-    coll_tune_score = []
+    pct_collect_first = []
+    homo_collect_first = []
+    pct_collect_second = []
+    homo_collect_second = []
+    coll_score = []
     coll_tradeoffs = []
-    pct_collect_first,homo_collect_first,pct_collect_second,homo_collect_second,coll_tradeoffs,\
-    coll_tune_score= tuning_test(tune_data,radius,pct_collect_first,homo_collect_first,pct_collect_second,
-                                 homo_collect_second,coll_tradeoffs,coll_tune_score,tune = True)
-    pct_collect_first, homo_collect_first, pct_collect_second, homo_collect_second = init_score()
-    pct_collect_first,homo_collect_first,pct_collect_second,homo_collect_second,coll_tradeoffs,\
-    coll_tune_score = tuning_test(test_data,radius, pct_collect_first, homo_collect_first,pct_collect_second,
-                                  homo_collect_second, coll_tradeoffs,coll_tune_score,test=True)
-    return pct_collect_first,homo_collect_first,pct_collect_second,homo_collect_second
+
+    # tune data
+    for j in range(len(tune_data)):
+        tuning_parameters = tune(tune_data[j], radius)
+        coll_tradeoffs.append(tuning_parameters)
+
+    # testing
+    for k in range(len(test_data)):
+        tradoffs = coll_tradeoffs[k]
+        low = tradoffs[0]
+        dist_pct = tradoffs[1]
+        homo_first, percentage_first, homo_second, percentage_second, scores = test(tune_data[k],radius,low,dist_pct)
+        pct_collect_first.append(percentage_first)
+        homo_collect_first.append(homo_first)
+        pct_collect_second.append(percentage_second)
+        homo_collect_second.append(homo_second)
+        coll_score.append(scores)
 
 
 if __name__ == '__main__':
