@@ -2,10 +2,10 @@ import emission.analysis.modelling.tour_model.similarity as similarity
 import numpy as np
 import emission.analysis.modelling.tour_model.get_request_percentage as grp
 import emission.analysis.modelling.tour_model.get_scores as gs
-import emission.analysis.modelling.tour_model.label_processing as lp
+import label_processing as lp
 import emission.analysis.modelling.tour_model.data_preprocessing as preprocess
 
-def second_round(first_label_set,first_labels,bin_trips,filter_trips,low,dist_pct,sim,new_labels,track):
+def second_round(first_label_set,first_labels,bin_trips,filter_trips,sim,new_labels,track,kmeans,low,dist_pct):
     for l in first_label_set:
         # store second round trips data
         second_round_trips = []
@@ -24,7 +24,7 @@ def second_round(first_label_set,first_labels,bin_trips,filter_trips,low,dist_pc
         # to the same cluster as each other.
         method = 'single'
         # get the second label from the second round of clustering using hierarchical clustering
-        second_labels = lp.get_second_labels(x, method, low, dist_pct)
+        second_labels = lp.get_second_labels(x, method, low, dist_pct,kmeans)
         # concatenate the first label (label from the first round) and the second label (label
         # from the second round) (e.g.first label[1,1,1], second label[1,2,3], new_labels is [11,12,13]
         new_labels = lp.get_new_labels(second_labels, second_round_idx_labels, new_labels)
@@ -77,7 +77,7 @@ def get_track(bins, first_labels):
     return idx_labels_track
 
 
-def tune(data,radius):
+def tune(data,radius,kmeans):
     sim, bins, bin_trips, filter_trips = first_round(data, radius)
     # it is possible that we don't have common trips for tuning or testing
     # bins contain common trips indices
@@ -93,23 +93,22 @@ def tune(data,radius):
         tune_score = {}
         for dist_pct in np.arange(0.15, 0.6, 0.02):
             for low in range(250, 600):
-                percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips,
-                                                              low, dist_pct,
-                                                              sim, new_labels, track)
+                percentage_second, homo_second = second_round(first_label_set,first_labels,bin_trips,filter_trips,sim,
+                                                              new_labels,track,kmeans,low,dist_pct)
 
                 curr_score = gs.get_score(homo_second, percentage_second)
                 if curr_score not in tune_score:
-                    tune_score[curr_score] = (low, dist_pct, homo_second, percentage_second)
+                    tune_score[curr_score] = (low, dist_pct)
 
         best_score = max(tune_score)
-        sel_tradeoffs = tune_score[best_score][0:2]
+        sel_tradeoffs = tune_score[best_score]
     else:
         sel_tradeoffs = (0,0)
 
     return sel_tradeoffs
 
 
-def test(data,radius,low,dist_pct):
+def test(data,radius,low,dist_pct,kmeans):
     sim, bins, bin_trips, filter_trips = first_round(data, radius)
     # it is possible that we don't have common trips for tuning or testing
     # bins contain common trips indices
@@ -125,8 +124,9 @@ def test(data,radius,low,dist_pct):
         percentage_first = grp.get_req_pct(new_labels, track, filter_trips, sim)
         # get homogeneity score for the subset for the first round
         homo_first = gs.score(bin_trips, first_labels)
-        percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips, low,
-                                                      dist_pct, sim, new_labels, track)
+        percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips,
+                                                      sim, new_labels, track,kmeans,low,
+                                                      dist_pct)
     else:
         percentage_first = 1
         homo_first = 1
@@ -136,7 +136,7 @@ def test(data,radius,low,dist_pct):
     return homo_first,percentage_first,homo_second,percentage_second,scores
 
 
-def main(uuid = None):
+def main(uuid=None):
     user = uuid
     radius = 100
     trips = preprocess.read_data(user)
@@ -153,15 +153,19 @@ def main(uuid = None):
 
     # tune data
     for j in range(len(tune_data)):
-        tuning_parameters = tune(tune_data[j], radius)
+        tuning_parameters = tune(tune_data[j],radius,kmeans=None)
         coll_tradeoffs.append(tuning_parameters)
 
     # testing
     for k in range(len(test_data)):
         tradoffs = coll_tradeoffs[k]
+
+        # using scipy clustering or kmeans:
         low = tradoffs[0]
         dist_pct = tradoffs[1]
-        homo_first, percentage_first, homo_second, percentage_second, scores = test(tune_data[k],radius,low,dist_pct)
+        homo_first, percentage_first, homo_second, percentage_second, scores = test(test_data[k],radius,low,dist_pct,
+                                                                                    kmeans=None)
+
         pct_collect_first.append(percentage_first)
         homo_collect_first.append(homo_first)
         pct_collect_second.append(percentage_second)
