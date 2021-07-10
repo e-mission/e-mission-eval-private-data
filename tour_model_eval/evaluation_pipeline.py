@@ -24,7 +24,10 @@ def second_round(first_label_set,first_labels,bin_trips,filter_trips,sim,new_lab
         # to the same cluster as each other.
         method = 'single'
         # get the second label from the second round of clustering using hierarchical clustering
-        second_labels = lp.get_second_labels(x, method, low, dist_pct,kmeans)
+        second_labels = lp.get_second_labels(x, method, low, dist_pct)
+        # for test set, we use kmeans to re-build the model and save it later
+        if kmeans:
+            second_labels = lp.kmeans_clusters(second_labels,x)
         # concatenate the first label (label from the first round) and the second label (label
         # from the second round) (e.g.first label[1,1,1], second label[1,2,3], new_labels is [11,12,13]
         new_labels = lp.get_new_labels(second_labels, second_round_idx_labels, new_labels)
@@ -125,8 +128,7 @@ def test(data,radius,low,dist_pct,kmeans):
         # get homogeneity score for the subset for the first round
         homo_first = gs.score(bin_trips, first_labels)
         percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips,
-                                                      sim, new_labels, track,kmeans,low,
-                                                      dist_pct)
+                                                      sim, new_labels, track,kmeans,low,dist_pct)
     else:
         percentage_first = 1
         homo_first = 1
@@ -164,7 +166,7 @@ def main(uuid=None):
         low = tradoffs[0]
         dist_pct = tradoffs[1]
         homo_first, percentage_first, homo_second, percentage_second, scores = test(test_data[k],radius,low,dist_pct,
-                                                                                    kmeans=None)
+                                                                                    kmeans=True)
 
         pct_collect_first.append(percentage_first)
         homo_collect_first.append(homo_first)
