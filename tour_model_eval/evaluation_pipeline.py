@@ -2,7 +2,7 @@ import emission.analysis.modelling.tour_model.similarity as similarity
 import numpy as np
 import emission.analysis.modelling.tour_model.get_request_percentage as grp
 import emission.analysis.modelling.tour_model.get_scores as gs
-import label_processing as lp
+import emission.analysis.modelling.tour_model.label_processing as lp
 import emission.analysis.modelling.tour_model.data_preprocessing as preprocess
 
 def second_round(first_label_set,first_labels,bin_trips,filter_trips,sim,new_labels,track,kmeans,low,dist_pct):
