@@ -5,7 +5,8 @@ import jsonpickle as jpickle
 
 
 def loadModelStage(filename):
-    import emission.analysis.classification.inference.mode.seed.pipeline as seedp
+    import jsonpickle.ext.numpy as jsonpickle_numpy
+    jsonpickle_numpy.register_handlers()
     model = loadModel(filename)
     return model
 
@@ -44,13 +45,29 @@ def predict_labels(trip):
     trip_loc_feat = trip_feat[0:4]
     try:
         # load locations of bins(1st round of clustering)
+        # e.g.{'0': [[start lon1, start lat1, end lon1, end lat1],[start lon, start lat, end lon, end lat]]}
+        # another explanation: -'0': label from the 1st round
+        #                      - the value of key '0': all trips that in this bin
+        #                      - for every trip: the coordinates of start/end locations
         bin_locations = loadModelStage('locations_' + str(user))[0]
+
         # load models from the 2nd round of clustering
+        # we use Kmeans to build the model in the previous model building step
+        # assume that we have 2 clusters from the 1st round(that means 2 bins),
+        # the following is an example of the saved models.
+        # e.g. {'0': KMeans(n_clusters=2, random_state=0), '1': KMeans(n_clusters=5, random_state=0)}
         models = loadModelStage('models_' + str(user))[0]
+
         # load user labels in all clusters
+        # assume that we have 1 cluster(bin) from the 1st round of clustering, which has label '0',
+        # and we have 1 cluster from the 2nd round, which has label '1'
+        # the value of key '0' contains all 2nd round clusters
+        # the value of key '1' contains all user labels and probabilities in this cluster
+        # e.g. {'0': [{'1': [{'labels': {'mode_confirm': 'shared_ride', 'purpose_confirm': 'home', 'replaced_mode': 'drove_alone'}}]}]}
         user_labels = loadModelStage('user_labels_' + str(user))[0]
+
     except IOError:
-        return {}
+        return []
 
     first_round_label_set = list(bin_locations.keys())
     sel_fl = None
@@ -64,18 +81,28 @@ def predict_labels(trip):
             sel_fl = fl
             break
     if not sel_fl:
-        return {}
+        return []
     # choose selected model
     sel_model = models[sel_fl]
     # predict 2nd label for the new trip
+    # the value of sel_model.predict([trip_feat]) by default is numpy.ndarray, e.g.[1]
+    # so we need to turn it into '1' so that it can be the same type as dict key in user_labels dicts
     sel_sl = str(sel_model.predict([trip_feat])[0])
-    # values of the selected 1st round label
-    sel_1st_round_val = user_labels[sel_fl][0]
-    second_label_ls = list(sel_1st_round_val.keys())
+
+    # - seccond_round_result: values of the key of selected 1st round label
+    # e.g.{'0': [{'labels': {'mode_confirm': 'shared_ride', 'purpose_confirm': 'home', 'replaced_mode': 'drove_alone'},
+    # 'p': 1.0}],
+    # '1': [{'labels': {'mode_confirm': 'shared_ride', 'purpose_confirm': 'church', 'replaced_mode': 'drove_alone'},
+    # 'p': 0.9333333333333333},{'labels': {'mode_confirm': 'shared_ride', 'purpose_confirm': 'entertainment',
+    # 'replaced_mode': 'drove_alone'},'p': 0.06666666666666667}]}
+    # more explanation: '0' and '1' are 2nd round clusters from a bin(1st round cluster)
+    # cluster '0' contains all user label combinations and probabilities in this cluster
+    seccond_round_result = user_labels[sel_fl][0]
+    second_label_ls = list(seccond_round_result.keys())
     if sel_sl not in second_label_ls:
-        return {}
+        return []
     # values of the selected 2nd round label, wrapped in a list
-    sel_2nd_round_val = sel_1st_round_val[sel_sl]
+    sel_2nd_round_val = seccond_round_result[sel_sl]
 
     return sel_2nd_round_val
 
@@ -84,9 +111,36 @@ def predict_labels(trip):
 if __name__ == '__main__':
     participant_uuid_obj = list(edb.get_profile_db().find({"install_group": "participant"}, {"user_id": 1, "_id": 0}))
     all_users = [u["user_id"] for u in participant_uuid_obj]
+
+    # case 1: the new trip matches a bin from the 1st round and a cluster from the 2nd round
     user = all_users[0]
     radius = 100
     trips = preprocess.read_data(user)
     filter_trips = preprocess.filter_data(trips, radius)
     new_trip = [filter_trips[4]]
+    # result is [{'labels': {'mode_confirm': 'shared_ride', 'purpose_confirm': 'church', 'replaced_mode': 'drove_alone'},
+    # 'p': 0.9333333333333333}, {'labels': {'mode_confirm': 'shared_ride', 'purpose_confirm': 'entertainment',
+    # 'replaced_mode': 'drove_alone'}, 'p': 0.06666666666666667}]
     print(predict_labels(new_trip))
+
+    # case 2: no existing files for the user who has the new trip:
+    # 1. the user is invalid(< 10 existing fully labeled trips, or < 50% of trips that fully labeled)
+    # 2. the user doesn't have common trips
+    user = all_users[1]
+    trips = preprocess.read_data(user)
+    new_trip = [trips[0]]
+    # result is []
+    print(predict_labels(new_trip))
+
+    # case3: the new trip is novel trip(doesn't fall in any 1st round bins)
+    user = all_users[0]
+    radius = 100
+    trips = preprocess.read_data(user)
+    filter_trips = preprocess.filter_data(trips, radius)
+    new_trip = [filter_trips[0]]
+    # result is []
+    print(predict_labels(new_trip))
+
+    # case 4: the new trip falls in a 1st round bin, but predict to be a new cluster in the 2nd round
+    # result is []
+    # no example for now
