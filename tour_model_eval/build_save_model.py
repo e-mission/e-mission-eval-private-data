@@ -112,7 +112,7 @@ def main():
                     # compute unique label sets and their probabilities in one cluster
                     # 'p' refers to probability
                     unique_labels = user_label_df.groupby(user_label_df.columns.tolist()).size().reset_index(name='count')
-                    unique_labels['p'] = [unique_labels.iloc[i]['count'] / sum_trips for i in range(len(unique_labels))]
+                    unique_labels['p'] = unique_labels.count / sum_trips
                     labels_columns = user_label_df.columns.to_list()
                     one_set_labels = {}
                     for i in range(len(unique_labels)):
@@ -150,7 +150,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
 
 
