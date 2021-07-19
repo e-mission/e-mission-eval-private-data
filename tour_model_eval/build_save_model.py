@@ -12,22 +12,25 @@ import jsonpickle as jpickle
 import sklearn.cluster as sc
 
 
-def find_best_split(user,test_data):
+def find_best_split_and_parameters(user,test_data):
     # find the best score
-    score_filename = 'score_' + str(user)
-    score_1user = load.loadModelStage(score_filename)
-    best_score = max(score_1user)
+    filename = "user_"+str(user)+".csv"
+    df = pd.read_csv(filename, index_col='split')
+    scores = df['scores'].tolist()
+    best_split_idx = scores.index(max(scores))
     # use the position of best_score to find best_split
-    best_split_idx = score_1user.index(best_score)
     best_split = test_data[best_split_idx]
-    return best_split,best_split_idx
+    # use best_split_idx to find the best parameters
+    low = df.loc[best_split_idx, 'lower boundary']
+    dist_pct = df.loc[best_split_idx, 'distance percentage']
+    return best_split,best_split_idx,low,dist_pct
 
 
-def find_best_parameters(user,best_split_idx):
-    tradeoff_filename = 'tradeoff_' + str(user)
-    tradeoff_1user = load.loadModelStage(tradeoff_filename)
-    best_parameters = tradeoff_1user[best_split_idx]
-    return best_parameters
+# def find_best_parameters(user,best_split_idx):
+#     tradeoff_filename = 'tradeoff_' + str(user)
+#     tradeoff_1user = load.loadModelStage(tradeoff_filename)
+#     best_parameters = tradeoff_1user[best_split_idx]
+#     return best_parameters
 
 
 def save_models(obj_name,obj,user):
@@ -53,12 +56,7 @@ def main():
         test_data = preprocess.get_subdata(filter_trips, tune_idx)
 
         # find the best split and parameters, and use them to build the model
-        best_split,best_split_idx = find_best_split(user,test_data)
-        best_parameters = find_best_parameters(user,best_split_idx)
-        # add a print statement here to see the selected parameters and split index
-        print('user',a,'best parameters ',best_parameters, 'selected split ',best_split_idx)
-        low = best_parameters[0]
-        dist_pct = best_parameters[1]
+        best_split, best_split_idx, low, dist_pct = find_best_split_and_parameters(user,test_data)
 
         # run the first round of clustering
         sim, bins, bin_trips, filter_trips = ep.first_round(best_split, radius)
@@ -114,8 +112,8 @@ def main():
                     unique_labels = user_label_df.groupby(user_label_df.columns.tolist()).size().reset_index(name='count')
                     unique_labels['p'] = [unique_labels.iloc[i]['count'] / sum_trips for i in range(len(unique_labels))]
                     labels_columns = user_label_df.columns.to_list()
-                    one_set_labels = {}
                     for i in range(len(unique_labels)):
+                        one_set_labels = {}
                         # e.g. labels_only={'mode_confirm': 'pilot_ebike', 'purpose_confirm': 'work', 'replaced_mode': 'walk'}
                         labels_only = {column: unique_labels.iloc[i][column] for column in labels_columns}
                         one_set_labels["labels"] = labels_only
