@@ -4,39 +4,21 @@ import emission.analysis.modelling.tour_model.get_request_percentage as grp
 import emission.analysis.modelling.tour_model.get_scores as gs
 import emission.analysis.modelling.tour_model.label_processing as lp
 import emission.analysis.modelling.tour_model.data_preprocessing as preprocess
+import second_round_of_clustering as sr
+import pandas as pd
 
-def second_round(first_label_set,first_labels,bin_trips,filter_trips,sim,new_labels,track,kmeans,low,dist_pct):
+def second_round(bin_trips,filter_trips,first_labels,track,low,dist_pct,sim,kmeans):
+    sec = sr.SecondRoundOfClustering(bin_trips,first_labels)
+    first_label_set = list(set(first_labels))
     for l in first_label_set:
-        # store second round trips data
-        second_round_trips = []
-        # create a track to store indices and labels for the second round
-        second_round_idx_labels = []
-        for index, first_label in enumerate(first_labels):
-            if first_label == l:
-                second_round_trips.append(bin_trips[index])
-                second_round_idx_labels.append([index, first_label])
-        x = preprocess.extract_features(second_round_trips)
-
-        # We choose single-linkage clustering.
-        # See examples and explanations at https://en.wikipedia.org/wiki/Single-linkage_clustering
-        # It is based on grouping clusters in bottom-up fashion (agglomerative clustering),
-        # at each step combining two clusters that contain the closest pair of elements not yet belonging
-        # to the same cluster as each other.
-        method = 'single'
-        # get the second label from the second round of clustering using hierarchical clustering
-        second_labels = lp.get_second_labels(x, method, low, dist_pct)
-        # for test set, we use kmeans to re-build the model and save it later
+        sec.get_sel_features_and_trips(first_labels,l)
+        sec.hierarcial_clustering(low, dist_pct)
         if kmeans:
-            second_labels = lp.kmeans_clusters(second_labels,x)
-        # concatenate the first label (label from the first round) and the second label (label
-        # from the second round) (e.g.first label[1,1,1], second label[1,2,3], new_labels is [11,12,13]
-        new_labels = lp.get_new_labels(second_labels, second_round_idx_labels, new_labels)
-        # change the labels in track with new_labels
-        track = lp.change_track_labels(track, new_labels)
-
+            sec.kmeans_clustering()
+        new_labels = sec.get_new_labels(first_labels)
+        track = sec.get_new_track(track)
     # get request percentage for the subset for the second round
     percentage_second = grp.get_req_pct(new_labels, track, filter_trips, sim)
-
     # get homogeneity score for the second round
     homo_second = gs.score(bin_trips, new_labels)
     return percentage_second,homo_second
@@ -80,24 +62,26 @@ def get_track(bins, first_labels):
     return idx_labels_track
 
 
+def get_first_label_and_track(bins,bin_trips,filter_trips):
+    gs.compare_trip_orders(bins, bin_trips, filter_trips)
+    first_labels = get_first_label(bins)
+    track = get_track(bins, first_labels)
+    return first_labels,track
+
+
 def tune(data,radius,kmeans):
     sim, bins, bin_trips, filter_trips = first_round(data, radius)
     # it is possible that we don't have common trips for tuning or testing
     # bins contain common trips indices
     if len(bins) is not 0:
-        gs.compare_trip_orders(bins, bin_trips, filter_trips)
-        first_labels = get_first_label(bins)
-        # new_labels temporary stores the labels from the first round, but later the labels in new_labels will be
-        # updated with the labels after two rounds of clustering.
-        new_labels = first_labels.copy()
-        first_label_set = list(set(first_labels))
-        track = get_track(bins, first_labels)
+        first_labels, track = get_first_label_and_track(bins,bin_trips,filter_trips)
         # collect tuning scores and parameters
         tune_score = {}
         for dist_pct in np.arange(0.15, 0.6, 0.02):
             for low in range(250, 600):
-                percentage_second, homo_second = second_round(first_label_set,first_labels,bin_trips,filter_trips,sim,
-                                                              new_labels,track,kmeans,low,dist_pct)
+
+                percentage_second, homo_second = second_round(bin_trips,filter_trips,first_labels,track,low,dist_pct,
+                                                              sim,kmeans)
 
                 curr_score = gs.get_score(homo_second, percentage_second)
                 if curr_score not in tune_score:
@@ -105,10 +89,13 @@ def tune(data,radius,kmeans):
 
         best_score = max(tune_score)
         sel_tradeoffs = tune_score[best_score]
+        low = sel_tradeoffs[0]
+        dist_pct = sel_tradeoffs[1]
     else:
-        sel_tradeoffs = (0,0)
+        low = 0
+        dist_pct = 0
 
-    return sel_tradeoffs
+    return low,dist_pct
 
 
 def test(data,radius,low,dist_pct,kmeans):
@@ -116,19 +103,16 @@ def test(data,radius,low,dist_pct,kmeans):
     # it is possible that we don't have common trips for tuning or testing
     # bins contain common trips indices
     if len(bins) is not 0:
-        gs.compare_trip_orders(bins, bin_trips, filter_trips)
-        first_labels = get_first_label(bins)
+        first_labels, track = get_first_label_and_track(bins,bin_trips,filter_trips)
         # new_labels temporary stores the labels from the first round, but later the labels in new_labels will be
         # updated with the labels after two rounds of clustering.
         new_labels = first_labels.copy()
-        first_label_set = list(set(first_labels))
-        track = get_track(bins, first_labels)
         # get request percentage for the subset for the first round
         percentage_first = grp.get_req_pct(new_labels, track, filter_trips, sim)
         # get homogeneity score for the subset for the first round
         homo_first = gs.score(bin_trips, first_labels)
-        percentage_second, homo_second = second_round(first_label_set, first_labels, bin_trips, filter_trips,
-                                                      sim, new_labels, track,kmeans,low,dist_pct)
+        percentage_second, homo_second = second_round(bin_trips, filter_trips, first_labels, track, low, dist_pct,
+                                                      sim, kmeans)
     else:
         percentage_first = 1
         homo_first = 1
@@ -141,39 +125,40 @@ def test(data,radius,low,dist_pct,kmeans):
 def main(uuid=None):
     user = uuid
     radius = 100
+    df = pd.DataFrame(columns=['user','user_id','percentage of 1st round','homogeneity socre of 1st round','percentage of 2nd round',
+                              'homogeneity socre of 2nd roun','scores','lower boundary','distance percentage'])
     trips = preprocess.read_data(user)
     filter_trips = preprocess.filter_data(trips, radius)
     tune_idx, test_idx = preprocess.split_data(filter_trips)
     tune_data = preprocess.get_subdata(filter_trips, test_idx)
     test_data = preprocess.get_subdata(filter_trips, tune_idx)
-    pct_collect_first = []
-    homo_collect_first = []
-    pct_collect_second = []
-    homo_collect_second = []
-    coll_score = []
-    coll_tradeoffs = []
 
     # tune data
     for j in range(len(tune_data)):
-        tuning_parameters = tune(tune_data[j],radius,kmeans=None)
-        coll_tradeoffs.append(tuning_parameters)
+        low, dist_pct = tune(tune_data[j], radius, kmeans=False)
+        df.loc[j,'lower boundary']=low
+        df.loc[j,'distance percentage']=dist_pct
+
 
     # testing
     for k in range(len(test_data)):
-        tradoffs = coll_tradeoffs[k]
+        low = df.loc[k,'lower boundary']
+        dist_pct = df.loc[k,'distance percentage']
 
-        # using scipy clustering or kmeans:
-        low = tradoffs[0]
-        dist_pct = tradoffs[1]
-        homo_first, percentage_first, homo_second, percentage_second, scores = test(test_data[k],radius,low,dist_pct,
-                                                                                    kmeans=True)
+        # for testing, we add kmeans to re-build the model
+        homo_first, percentage_first, homo_second, percentage_second, scores = test(test_data[k],radius,low,
+                                                                                    dist_pct,kmeans=True)
 
-        pct_collect_first.append(percentage_first)
-        homo_collect_first.append(homo_first)
-        pct_collect_second.append(percentage_second)
-        homo_collect_second.append(homo_second)
-        coll_score.append(scores)
+        df.loc[k, 'percentage of 1st round'] = percentage_first
+        df.loc[k, 'homogeneity socre of 1st round'] = homo_first
+        df.loc[k, 'percentage of 2nd round'] = percentage_second
+        df.loc[k, 'homogeneity socre of 2nd round'] = homo_second
+        df.loc[k, 'scores'] = scores
+        df['user_id'] = user
+        df['user'] = 'user0'
 
+    filename = "user_" + str(user) + ".csv"
+    df.to_csv(filename, index=True, index_label='split')
 
 if __name__ == '__main__':
     main(uuid=None)
