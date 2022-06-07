@@ -9,14 +9,28 @@ it needs to be included while running them.
 
 1. Set the home environment variable
 
+    Mac:
+
     ```
     $ export EMISSION_SERVER_HOME=<path_to_emission_server_repo>
     ```
+    
+    In windows command prompt use:
+    
+    ```
+    > set EMISSION_SERVER_HOME=<path_to_emission_server_repo>
+    ``` 
 
 1. If you haven't setup before, set up the evaluation system
 
+    Mac:
     ```
     $ source setup.sh
+    ```
+    
+    Windows:
+    ```
+    > call setup.sh
     ```
 
 1. If you have, activate
@@ -24,9 +38,13 @@ it needs to be included while running them.
     ```
     $ source activate.sh
     ```
+    
+    ```
+    call activate.sh
+    ```
 
-1. Access the visualizations of interest and copy the config over
-
+1. Access the visualizations of interest and copy the config folder from the e-mission-server folder to your eval_folder.
+The 'eval_folder' in this context is e-mission-eval-private-data.
 ```
 $ cd <eval_folder>
 $ cp -r ../conf .
