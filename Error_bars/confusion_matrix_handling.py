@@ -2,6 +2,12 @@ import numpy as np
 import pandas as pd
 
 
+def drop_rows_and_columns(df,row_list,column_list):
+    df = df.copy()
+    df = df.drop(labels = row_list, axis = 0)
+    df = df.drop(labels = column_list, axis = 1)
+    return df
+
 def get_energy_dict(energy_intensity_dataframe):
     # Takes the energy intensity.csv dataframe.
     # Returns a dictionary of energy intensity for each mode in kWH/PMT
@@ -48,6 +54,8 @@ def expectation(probs,values):
     return sum(probs*values)
 
 def get_conditional_EI_expectation_and_variance(df, energy_dict):
+    # df is the confusion matrix as a dataframe.
+
     df = df.copy()
     column_normd_matrix = df/df.sum(axis=0) # divide the entries in each column by the corresponding column sum
     energy_intensities = np.array([energy_dict[mode] for mode in df.index]) # this will place each intensity in the same order as it appears in the confusion matrix.
@@ -65,68 +73,102 @@ def get_conditional_EI_expectation_and_variance(df, energy_dict):
     return EI_expectations_and_vars.set_index(keys = df.columns)
 
 
+def change_precision(confusion_mat,mode,new_precision):
+    cm = confusion_mat.copy()
+    mode_prediction_total = cm[mode].sum()
 
-MODE_MAPPING_DICT = {
-    'drove_alone': 'Gas Car, drove alone',
-    'e_car_drove_alone': 'E-car, drove alone',
-    'work_vehicle': 'Gas Car, drove alone',
-    'bus': 'Bus',
-    'train': 'Train',
-    'free_shuttle': 'Free Shuttle',
-    'train,_bus and walk': 'Train',
-    'train_and pilot e-bike': 'Train',
-    'taxi': 'Taxi/Uber/Lyft',
-    'friend_picked me up': 'Gas Car, with others',
-    'carpool_w/ friend to work': 'Gas Car, with others',
-    'friend_carpool to work': 'Gas Car, with others',
-    'carpool_to work': 'Gas Car, with others',
-    'friend/co_worker carpool': 'Gas Car, with others',
-    'carpool_to lunch': 'Gas Car, with others',
-    'carpool': 'Gas Car, with others',
-    'carpool_for lunch': 'Gas Car, with others',
-    'carpool_lunch': 'Gas Car, with others',
-    'shared_ride': 'Gas Car, with others',
-    'e_car_shared_ride': 'E-car, with others',
-    'bikeshare': 'Bikeshare',
-    'scootershare': 'Scooter share',
-    'pilot_ebike': 'E-bike',
-    'e-bike': 'Pilot ebike',
-    'walk': 'Walk',
-    'skateboard': 'Skate board',
-    'bike': 'Regular Bike',
-    'the_friend who drives us to work was running errands after the shift before dropping me off. not a trip of mine.': 'Not a Trip',
-    'not_a_trip': 'Not a Trip',
-    'no_travel': 'No Travel',
-    'same_mode': 'Same Mode',
-    'Bike': 'Regular Bike',
-    'Drove Alone': 'Gas Car, drove alone',
-    'Shared Ride': 'Gas Car, with others',
-    'Air': 'Air',
-    'Gas Car, drove alone': 'Gas Car, drove alone',
-    'Gas Car, with others': 'Gas Car, with others',
-    'E-car, drove alone': 'E-car, drove alone',
-    'E-car, with others': 'E-car, with others',
-    'Taxi/Uber/Lyft': 'Taxi/Uber/Lyft',
-    'Bus': 'Bus',
-    'Free Shuttle': 'Free Shuttle',
-    'Train': 'Train',
-    'Scooter share': 'Scooter share',
-    'Pilot ebike': 'Pilot ebike',
-    'Bikeshare': 'Bikeshare',
-    'Walk': 'Walk',
-    'Skate board': 'Skate board',
-    'Regular Bike': 'Regular Bike',
-    'Not a Trip': 'Not a Trip',
-    'No Travel': 'No Travel',
-    'air': 'Air',
-    'car': 'Gas Car, drove alone',
-    'electric_vehicle': 'E-car, drove alone',
-    'skiing': 'Walk',
-    'snowboarding': 'Walk',
-    'subway': 'Train',
-    'walking': 'Walk',
-    'bicycling': 'Regular Bike',
-    'escooter': 'Scooter share',
-    'light_rail': 'Train',
-    'no_gt': 'no_gt'
- }
+    # Let px = the new precision for mode x.
+    # Let i be the row index within a column.
+    # The new values in the mode_x_column should be:
+    # If i = x: px
+    # If i != x: (1-px)*mode_x_column[i]/sum_{k != x}(mode_x_column[k])
+
+    # for sensing, column modes are listed as they are labeled when sensed.
+    # row modes are listed as modes for which we have an energy intensity.
+    mode_col = cm[mode]     
+    predicted_mode_row_name = MODE_MAPPING_DICT[mode] if mode != 'car' else 'Gas Car, sensed'
+
+    # Zero out the row entry for the chosen mode.               
+    mode_col[predicted_mode_row_name] = 0
+
+    # Find the proportions that the other modes contribute.
+    mode_col = mode_col/sum(mode_col)
+    mode_col = (1-new_precision)*mode_col
+
+    # New conditional probabilities
+    mode_col[predicted_mode_row_name] = new_precision
+
+    # Update the confusion matrix, reverting to counts or durations, 
+    # since get_conditional_EI_expectation_and_variance expects counts or durations in the confusion matrix.
+    cm[mode] = mode_prediction_total*mode_col
+
+    return cm
+
+
+
+MODE_MAPPING_DICT = {'drove_alone': 'Gas Car, drove alone',
+ 'e_car_drove_alone': 'E-car, drove alone',
+ 'work_vehicle': 'Gas Car, drove alone',
+ 'bus': 'Bus',
+ 'train': 'Train',
+ 'free_shuttle': 'Free Shuttle',
+ 'train,_bus and walk': 'Train',
+ 'train_and pilot e-bike': 'Train',
+ 'taxi': 'Taxi/Uber/Lyft',
+ 'friend_picked me up': 'Gas Car, with others',
+ 'carpool_w/ friend to work': 'Gas Car, with others',
+ 'friend_carpool to work': 'Gas Car, with others',
+ 'carpool_to work': 'Gas Car, with others',
+ 'friend/co_worker carpool': 'Gas Car, with others',
+ 'carpool_to lunch': 'Gas Car, with others',
+ 'carpool': 'Gas Car, with others',
+ 'carpool_for lunch': 'Gas Car, with others',
+ 'carpool_lunch': 'Gas Car, with others',
+ 'shared_ride': 'Gas Car, with others',
+ 'e_car_shared_ride': 'E-car, with others',
+ 'bikeshare': 'Bikeshare',
+ 'scootershare': 'Scooter share',
+ 'pilot_ebike': 'Pilot ebike',
+ 'e-bike': 'Pilot ebike',
+ 'walk': 'Walk',
+ 'skateboard': 'Skate board',
+ 'bike': 'Regular Bike',
+ 'the_friend who drives us to work was running errands after the shift before dropping me off. not a trip of mine.': 'Not a Trip',
+ 'not_a_trip': 'Not a Trip',
+ 'no_travel': 'No Travel',
+ 'same_mode': 'Same Mode',
+ 'Bike': 'Regular Bike',
+ 'Drove Alone': 'Gas Car, drove alone',
+ 'Shared Ride': 'Gas Car, with others',
+ 'Air': 'Air',
+ 'Gas Car, drove alone': 'Gas Car, drove alone',
+ 'Gas Car, with others': 'Gas Car, with others',
+ 'E-car, drove alone': 'E-car, drove alone',
+ 'E-car, with others': 'E-car, with others',
+ 'Taxi/Uber/Lyft': 'Taxi/Uber/Lyft',
+ 'Bus': 'Bus',
+ 'Free Shuttle': 'Free Shuttle',
+ 'Train': 'Train',
+ 'Scooter share': 'Scooter share',
+ 'Pilot ebike': 'Pilot ebike',
+ 'Bikeshare': 'Bikeshare',
+ 'Walk': 'Walk',
+ 'Skate board': 'Skate board',
+ 'Regular Bike': 'Regular Bike',
+ 'Not a Trip': 'Not a Trip',
+ 'No Travel': 'No Travel',
+ 'air': 'Air',
+ 'car': 'Gas Car, drove alone',
+ 'electric_vehicle': 'E-car, drove alone',
+ 'skiing': 'Walk',
+ 'snowboarding': 'Walk',
+ 'subway': 'Train',
+ 'walking': 'Walk',
+ 'bicycling': 'Regular Bike',
+ 'escooter': 'Scooter share',
+ 'ebike': 'Pilot ebike',
+ 'light_rail': 'Train',
+ 'no_gt': 'no_gt',
+ 'air_or_hsr': 'train',
+ 'no_sensed': 'Not a Trip',
+ 'sensed_car': 'Gas Car, sensed'}
