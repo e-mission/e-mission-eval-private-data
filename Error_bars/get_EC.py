@@ -11,6 +11,8 @@ from confusion_matrix_handling import MODE_MAPPING_DICT
 
 import sklearn.model_selection as skm
 
+import helper_functions
+
 METERS_TO_MILES = 0.000621371 # 1 meter = 0.000621371 miles
 
 def investigate_sensing_for_one_user_label(expanded_labeled_trips_df, label):
@@ -159,6 +161,77 @@ def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI
 
     return trip_mean_EC, trip_var_EC
 
+
+def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df):
+
+    print("Computing energy consumption for each trip.")
+    expected = []
+    predicted = []
+    user_labeled = []
+
+    confusion_based_variance = []
+    user_based_variance = []
+
+    expected_error_list = []
+    prediction_error_list = []
+
+    for _,ct in df.iterrows():
+
+        # Calculate expected energy consumption
+        trip_expected, trip_confusion_based_variance = get_expected_EC_for_one_trip(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df)
+
+        # Calculate predicted energy consumption
+        trip_predicted = get_predicted_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict)[0]
+        
+        # Calculate user labeled energy consumption
+        trip_user_labeled, trip_user_based_variance = get_user_labeled_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict)
+
+        expected.append(trip_expected)
+        predicted.append(trip_predicted)
+        user_labeled.append(trip_user_labeled)
+
+        confusion_based_variance.append(trip_confusion_based_variance)
+        user_based_variance.append(trip_user_based_variance)
+
+        prediction_error = trip_predicted - trip_user_labeled
+        expected_error = trip_expected - trip_user_labeled
+
+        expected_error_list.append(expected_error)
+        prediction_error_list.append(prediction_error)
+
+        if abs(expected_error) > 100: 
+            print(f"Large EC error: EC user labeled, EC expected: {trip_user_labeled:.2f}, {trip_expected:.2f}")
+            print(f"\tTrip info: mode_confirm,sensed,distance (mi): {ct['mode_confirm'],ct['section_modes']},{ct['distance']*METERS_TO_MILES:.2f}")
+
+
+    total_expected = sum(expected)
+    total_predicted = sum(predicted)
+    total_user_labeled = sum(user_labeled)
+    print(f"Total EC: expected, predicted, user labeled: {total_expected:.2f}, {total_predicted:.2f}, {total_user_labeled:.2f}")
+    print(f"standard deviation for expected: {np.sqrt(sum(confusion_based_variance)):.2f}")
+
+    percent_error_expected = helper_functions.relative_error(total_expected,total_user_labeled)*100
+    percent_error_predicted = helper_functions.relative_error(total_predicted,total_user_labeled)*100
+    print(f"Percent errors for expected and for predicted, including outliers: {percent_error_expected:.2f}, {percent_error_predicted:.2f}")
+
+    # Append the values to expanded_labeled_trips
+    elt_with_errors = df.copy()  # elt: expanded labeled trips
+    elt_with_errors['error_for_confusion'] = expected_error_list
+    elt_with_errors['error_for_prediction'] = prediction_error_list
+    elt_with_errors['expected'] = expected
+    elt_with_errors['predicted'] = predicted
+    elt_with_errors['user_labeled'] = user_labeled
+
+    # Append variances
+    elt_with_errors['confusion_var'] = confusion_based_variance
+    elt_with_errors['user_var'] = user_based_variance
+    elt_with_errors['confusion_sd'] = np.sqrt(np.array(confusion_based_variance))
+    elt_with_errors['user_sd'] = np.sqrt(np.array(user_based_variance))
+
+    return elt_with_errors
+
+#######
+###### No longer using the aggregate functions.
 def get_aggregate_EC(trips_df, only_sensing, unit_dist_MCS_df, android_EI_moments, ios_EI_moments,energy_dict):
 
     mean_EC_agg = 0    # aggregate energy consumption

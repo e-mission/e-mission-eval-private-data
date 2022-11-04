@@ -22,3 +22,6 @@ def get_expanded_labeled_trips(user_list):
             labeled_trip_df_map[u])
 
     return pd.concat(expanded_labeled_trip_df_map.values(), ignore_index=True)
+
+def relative_error(m,t):
+    return (m-t)/t
