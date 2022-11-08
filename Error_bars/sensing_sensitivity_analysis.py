@@ -26,7 +26,7 @@ import get_EC
 METERS_TO_MILES = 0.000621371 # 1 meter = 0.000621371 miles
 
 # Energy Consumption errors by mode:
-def plot_error_hists_by_mode(df):
+def plot_error_hists_by_mode(df, chosen_program):
     n_plots = len(df.mode_confirm.unique())
     fig,axs = plt.subplots(n_plots,2)
     fig.set_figwidth(15)
@@ -51,6 +51,45 @@ def plot_error_hists_by_mode(df):
     fig_file = output_path+chosen_program+"_EC_mode_errors_with_"+which_car_precision+ "_for_car_precision_info"+ "_r_from_"+which_r+ "_" +remove_outliers + "_remove_outliers"+".png"
     fig.savefig(fig_file)
     plt.close(fig)
+
+def plot_error_by_mode(df,chosen_program, r_for_dataset, r, percent_error_expected,percent_error_predicted, mean_EC_all_user_labeled):
+   # Plot error totals by mode:
+    mode_expected_errors = {}
+    mode_predicted_errors = {}
+
+    for mode in df.mode_confirm.unique():
+        if type(mode) == float: continue
+        user_labeled_total = sum(df[df.mode_confirm == mode]['user_labeled'])
+        error_for_expected = sum(df[df.mode_confirm == mode]['expected']) - user_labeled_total
+        error_for_predicted = sum(df[df.mode_confirm == mode]['predicted']) - user_labeled_total
+
+        mode_expected_errors[mode] = error_for_expected
+        mode_predicted_errors[mode] = error_for_predicted
+
+    mode_expected_errors['Total'] = sum(mode_expected_errors.values())
+    mode_predicted_errors['Total'] = sum(mode_expected_errors.values())
+    all_modes = list(mode_expected_errors.keys())
+
+    fig,axs = plt.subplots(1,2)
+    fig.set_figwidth(20)
+    fig.set_figheight(int(len(all_modes)/4)+1)
+
+    title = f"Total energy consumption errors by mode for {chosen_program}. Dataset r = {r_for_dataset:.2f}, used r = {r:.2f}, percent errors: expected: {percent_error_expected:.2f} predicted: {percent_error_predicted:.2f}\
+    \nuser labeled EC: {mean_EC_all_user_labeled:.2f}"
+    fig.suptitle(title)
+
+    axs[0].grid(axis='x')
+    axs[1].grid(axis='x')
+
+    axs[0].barh(all_modes,[mode_expected_errors[x] for x in all_modes])
+    axs[0].set_title("Confusion based error share by mode")
+    axs[1].barh(all_modes,[mode_predicted_errors[x] for x in all_modes])
+    axs[1].set_title("Prediction error share by mode")
+
+    fig_file = output_path+chosen_program+"_EC_mode_total_errors_"+which_car_precision+ "_for_car_precision_info"+ "_r_from_"+which_r+ "_" +remove_outliers + "_remove_outliers"+".png"
+    fig.savefig(fig_file)
+    plt.close(fig)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -237,7 +276,10 @@ if __name__ == '__main__':
     predicted_EC_all_sensing = sum(elt_with_errors_preprocessed['predicted'])
     mean_EC_all_user_labeled = sum(elt_with_errors_preprocessed['user_labeled'])
 
-    print(f"Percent errors for expected and predicted, {remove_outliers} to removing outliers: {hf.relative_error(mean_EC_all_sensing,mean_EC_all_user_labeled)*100:.2f}, {hf.relative_error(predicted_EC_all_sensing,mean_EC_all_user_labeled)*100:.2f}")
+    percent_error_expected = hf.relative_error(mean_EC_all_sensing,mean_EC_all_user_labeled)*100
+    percent_error_predicted = hf.relative_error(predicted_EC_all_sensing,mean_EC_all_user_labeled)*100
+
+    print(f"Percent errors for expected and predicted, {remove_outliers} to removing outliers: {percent_error_expected:.2f}, {percent_error_predicted:.2f}")
 
     sd_sensed = np.sqrt(sum(elt_with_errors_preprocessed['confusion_var']))
     sd_users = np.sqrt(sum(elt_with_errors_preprocessed['user_var']))
@@ -329,15 +371,15 @@ if __name__ == '__main__':
     fig.savefig(fig_file)
     plt.close(fig)
 
-    # How often is the magnitude of the aggregate error less than z standard deviations?
-    z = 2
-    print(f"What percent of the time is the error magnitude within {z} standard deviations of the mean?")
+    # How often is the magnitude of the aggregate error less than k standard deviations?
+    k = 2
+    print(f"What percent of the time is the error magnitude within {k} standard deviations of the mean?")
     for ps in proportion_sensed:
         ps0x = summary_df_map[ps]   # proportion sensed = 0.x
-        print(f"{ps} proportion sensed: {sum(z*ps0x['sd'] > abs(ps0x['error']))/len(ps0x)}")
+        print(f"{ps} proportion sensed: {sum(k*ps0x['sd'] > abs(ps0x['error']))/len(ps0x)}")
 
-    plot_error_hists_by_mode(elt_with_errors_preprocessed);
-
+    plot_error_hists_by_mode(elt_with_errors_preprocessed,chosen_program);
+    plot_error_by_mode(elt_with_errors_preprocessed,chosen_program, r_for_dataset, r, percent_error_expected,percent_error_predicted,mean_EC_all_user_labeled);
 
     ########################################################################################
     # Print sum of errors for each mode. could use a bar chart too.
