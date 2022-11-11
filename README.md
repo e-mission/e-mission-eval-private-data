@@ -2,6 +2,20 @@ This repository contains ipython notebooks for the evaluation of the e-mission
 platform.  These notebooks re-use code from the e-mission-server codebase, so
 it needs to be included while running them.
 
+### Specific info on the error_bars branch by allenmichael099:
+environment used: emission-private-eval, which the "Running" steps below set up.
+e-mission-server used: hlu109/e-mission-server, the eval-private-data-compatibility branch
+    https://github.com/hlu109/e-mission-server/tree/eval-private-data-compatibility
+    This is only important when working with the label assist model developed by hlu109
+
+The error_bars branch implements and tests the ideas in e-mission-docs issue #798 (Estimate mean and variance of energy consumption)
+Relevant code is in the folder Error_bars.
+
+To run analyses, first run store_errors.ipynb to save info on the mode and distance errors.
+Then either run sensing_sensitivity_analysis.py or sensing_error_sensitivity_analysis.ipynb.
+
+
+
 ### Running.
 
 1. Install the e-mission server, including setting it up

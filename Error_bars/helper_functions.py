@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 import sys
 sys.path.append('/Users/mallen2/alternate_branches/eval-compatible-server/e-mission-server')
@@ -25,17 +26,23 @@ def get_expanded_labeled_trips(user_list):
     return pd.concat(expanded_labeled_trip_df_map.values(), ignore_index=True)
 
 def relative_error(m,t):
+    # measured minus true over true
     return (m-t)/t
 
 
-def drop_unwanted_trips(df):
+def drop_unwanted_trips(df,drop_not_a_trip):
+
+    print('Dropping user labeled air trips and trips with no OS.')
     df = df.copy()
-    df = df.drop(
-        df[df.mode_confirm == 'air'].index
-    )
+    df = df.drop(df[df.mode_confirm == 'air'].index)
+    df = df[df['os'].notna()]  # several stage trips have nan operating systems.
 
+    if drop_not_a_trip == True: 
+        print("Also dropping trips labeled as not a trip and trips with mode_confirm of nan.")
+        df = df.drop(df[df.mode_confirm.isin(['not_a_trip','no_travel'])].index)
+        df = df[df['mode_confirm'].notna()]
 
-    for i,ct in df.iterrows():
+    #for i,ct in df.iterrows():
 
         # To look at only trips where the user label is in ['drove_alone','bike','bus','walk'] and the predicted mode is in
         # ["car","walking","bicycling","no_sensed","bus"]
@@ -56,20 +63,6 @@ def drop_unwanted_trips(df):
             if not ((ct['mode_confirm'] == 'shared_ride') and (ct['primary_mode'] == 'car')):
                 expanded_labeled_trips = expanded_labeled_trips.drop(index = i)
                 continue'''
-
-        # dropping air
-        if 'air_or_hsr' in ct['section_modes']:
-            #print(f"Sensed {ct['section_modes']}, user label was {ct['mode_confirm']}") 
-            df= df.drop(index = i)
-        elif type(ct['os']) == float:  # several stage trips have nan operating systems.
-            df = df.drop(index = i)
-
-        elif type(ct['mode_confirm']) == float: 
-            df = df.drop(index = i)
-
-        elif (ct['mode_confirm'] == 'not_a_trip') or (ct['mode_confirm'] == 'no_travel'):
-            #print(f"Sensed {ct['section_modes']}, user label was {ct['mode_confirm']}") 
-            df = df.drop(index = i)
     return df
 
 def get_ratios_for_dataset(df):
@@ -113,3 +106,61 @@ def get_ratios_for_dataset(df):
     }
 
     return  proportion_dict
+
+def get_primary_modes(df,energy_dict,MODE_MAPPING_DICT):
+    # Add primary mode and length columns to expanded labeled trips
+    df = df.copy()
+    primary_modes = []
+    primary_lengths = []
+
+    no_sections_count = 0
+    for i,ct in df.iterrows():
+        # Get primary mode
+        if len(ct["section_distances"]) == 0: # for data up to 5-9-2022, there are 63 stage trips with no sensed sections.
+            # maybe I should instead set primary mode to na 
+            # and use an estimated energy consumption of 0 for these trips.
+            df = df.drop(index = i)    
+            no_sections_count += 1
+        else:
+            longest_section = max(ct["section_distances"])
+            primary_mode = ct["section_modes"][ct["section_distances"]==longest_section]
+
+            # in case there are ever tied longest sections.
+            # pick the most energy intensive mode.
+            if isinstance(primary_mode,list): 
+                mini_energy_dict = {x:energy_dict[MODE_MAPPING_DICT[x]] for x in primary_mode}
+                primary_mode = max(mini_energy_dict, key=mini_energy_dict.get)
+
+            primary_modes.append(primary_mode)
+            primary_lengths.append(longest_section)
+
+    df['primary_mode'] = primary_modes
+    df['primary_length'] = primary_lengths
+    print(f"Dropped {no_sections_count} trips with no sensed sections.")
+    return df
+
+def get_outliers(df, column_of_interest, u_percentile, l_percentile):
+    '''takes a dataframe and returns a subsetted dataframe with the outlier values for the column of interest.
+    u_percentile: upper percentile
+    l_percentile: lower percentile
+    outliers will be the values above the upper percentile and below the lower percentile.
+    '''
+    quantiles = [u_percentile,l_percentile] 
+    upper, lower = np.percentile(df[column_of_interest], quantiles)
+    print(f"{quantiles[0]:.2f} and {quantiles[1]:.2f} percentiles: {upper:.2f},{lower:.2f}")
+
+    outliers = df[(df[column_of_interest] < lower) | (df[column_of_interest] > upper)]
+    return outliers
+
+def plot_energy_consumption_by_mode(energy_consumption_df,program_name):
+    df = energy_consumption_df.copy()
+    main_mode_labels = ['drove_alone','shared_ride','walk','pilot_ebike','bus','bike','train','taxi','free_shuttle']
+    program_main_mode_labels = [x for x in main_mode_labels if x in df.mode_confirm.unique()] # 4c doesn't have train before May 2022.
+
+    program_main_modes_EC = df.groupby('mode_confirm').sum().loc[program_main_mode_labels]
+    program_main_modes_EC = program_main_modes_EC[['predicted','expected','user_labeled']]
+
+    program_main_modes_EC.plot(kind='barh')
+    program_percent_error_expected = 100*relative_error(df.expected.sum(),df.user_labeled.sum())
+    plt.xlabel('Energy consumption (kWH)')
+    plt.title(f"Energy consumption by mode for {program_name} (full % error for expected: {program_percent_error_expected:.2f})")
