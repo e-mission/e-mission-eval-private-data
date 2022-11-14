@@ -8,7 +8,6 @@ from scipy.spatial import ConvexHull
 
 import data_wrangling
 from clustering import add_loc_clusters, ALG_OPTIONS
-import emission.storage.decorations.trip_queries as esdtq
 
 DENVER_COORD = [39.7392, -104.9903]
 MTV_COORD = [37.3861, -122.0839]

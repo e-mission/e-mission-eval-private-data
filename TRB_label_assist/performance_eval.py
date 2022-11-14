@@ -15,7 +15,7 @@ from sklearn.model_selection import KFold, ParameterGrid, ParameterSampler
 
 # our imports
 import models
-from data_wrangling import get_trip_index, get_labels, expand_coords
+from data_wrangling import expand_coords
 from clustering import add_loc_clusters, ALG_OPTIONS, purity_score
 import emission.analysis.modelling.tour_model_first_only.get_users as gu
 import emission.analysis.modelling.tour_model_first_only.data_preprocessing as pp
@@ -185,11 +185,11 @@ def cross_val_predict(model,
         else:
             mode_true += list(np.full(len(test_trips), np.nan))
         if 'purpose_confirm' in test_trips.columns:
-            purpose_true += test_trips['purpose_confirm'].to_list()
+            purpose_true += list(test_trips['purpose_confirm'].to_list())
         else:
-            purpose_true += list(np.full(len(test_trips), np.nan))
+            purpose_true += np.full(len(test_trips), np.nan)
         if 'replaced_mode' in test_trips.columns:
-            replaced_true += test_trips['replaced_mode'].to_list()
+            replaced_true += list(test_trips['replaced_mode'].to_list())
         else:
             replaced_true += list(np.full(len(test_trips), np.nan))
 
@@ -237,7 +237,6 @@ def cv_for_all_users(model,
                 continue
         except Exception as e:
             if raise_errors:
-                logging.warning(f'error for user {user}')
                 raise e
             else:
                 excluded_user_count += 1
@@ -544,14 +543,90 @@ def plot_mcm(mcm,
         # plt.tight_layout()
 
 
-def get_cluster_metrics(expanded_all_trip_df_map,
-                        user_list,
-                        radii,
-                        loc_type,
-                        algs,
-                        param_grid,
-                        n_iter=10,
-                        random_state=42):
+def get_cluster_metrics(trip_df):
+    pass
+
+
+#     metrics = []
+#     for r in radii:
+#         labels_true = user_trips.loc[
+#             ~user_trips.purpose_confirm.isnull(),
+#             'purpose_confirm']
+#         labels_pred = user_trips.loc[
+#             ~user_trips.purpose_confirm.isnull(),
+#             f"{loc_type}_{alg}_clusters_{r}_m"]
+
+#         # compute a bunch of metrics and save it
+#         n_clusters = len(
+#             user_trips[f"{loc_type}_{alg}_clusters_{r}_m"].
+#             unique())
+#         n_trips = len(user_trips)
+
+#         cluster_counts = user_trips[
+#             f"{loc_type}_{alg}_clusters_{r}_m"].value_counts()
+#         n_single_trip_clusters = len(
+#             cluster_counts.loc[cluster_counts == 1])
+
+#         avg_cluster_size = n_trips / n_clusters
+#         avg_multi_trip_cluster_size = (
+#             n_trips - n_single_trip_clusters) / n_clusters
+
+#         homogeneity = sm.homogeneity_score(
+#             labels_true, labels_pred)
+#         modified_homogeneity = modified_H_score(
+#             labels_true, labels_pred)
+#         purity = purity_score(labels_true, labels_pred)
+
+#         metrics.append({
+#             'UUID': user,
+#             'alg': alg,
+#             'radius': r,
+#             'params': param,
+#             'n_trips': n_trips,
+#             'n_clusters': n_clusters,
+#             'n_single_trip_clusters': n_single_trip_clusters,
+#             'avg_cluster_size': avg_cluster_size,
+#             'avg_multi_trip_cluster_size':
+#             avg_multi_trip_cluster_size,
+#             'homogeneity': homogeneity,
+#             'modified_homogeneity': modified_homogeneity,
+#             'purity': purity
+#         })
+
+#     metrics_by_user = pd.DataFrame.from_dict(metrics,
+#                                                 orient='columns')
+#     all_results.append(metrics_by_user)
+
+# except Exception as e:
+# print('aborting due to Exception')
+# # raise e
+# print(repr(e))
+# if len(all_results) > 0:
+# print('returning existing results')
+# return pd.concat(all_results)
+# else:
+# print('no completed results to return')
+# return
+# except KeyboardInterrupt as e:
+# print('aborting due to KeyboardInterrupt')
+# if len(all_results) > 0:
+# print('returning existing results')
+# return pd.concat(all_results)
+# else:
+# print('no completed results to return')
+# return
+
+# all_results_df = pd.concat(all_results).reset_index(drop=True)
+
+
+def run_eval_cluster_metrics(expanded_all_trip_df_map,
+                             user_list,
+                             radii,
+                             loc_type,
+                             algs,
+                             param_grid,
+                             n_iter=10,
+                             random_state=42):
     """ Runs a bunch of clustering algorithms with varying parameters and 
         reports cluster metrics (homogeneity, modified homogeneity, purity, number of clusters, cluster sizes, etc.)
 
