@@ -11,8 +11,14 @@ e-mission-server used: hlu109/e-mission-server, the eval-private-data-compatibil
 The error_bars branch implements and tests the ideas in e-mission-docs issue #798 (Estimate mean and variance of energy consumption)
 Relevant code is in the folder Error_bars.
 
-To run analyses, first run store_errors.ipynb to save info on the mode and distance errors.
-Then either run sensing_sensitivity_analysis.py or sensing_error_sensitivity_analysis.ipynb.
+To run analyses, 
+1. Run store_errors.ipynb to save info on the mode and distance errors.
+2. Run parallel_add_sensed_sections.py. This will find the sensed sections for every trip and add 
+'section_modes' and 'section_distances' fields to each confirmed trip document.
+    The expected and predicted energy consumptions calculations need these since they are at the section level.
+    Currently, it is not parallel. If I'm remembering correctly, running this on the full CEO dataset up to May 2022 takes ~6 hours.
+
+3. Then either run sensing_sensitivity_analysis.py or sensing_error_sensitivity_analysis.ipynb.
 
 
 
