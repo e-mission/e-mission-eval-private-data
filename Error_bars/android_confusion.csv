@@ -1,0 +1,11 @@
+gt_mode,walking,bicycling,car,bus,subway,train,no_sensed
+Walk,24743,1595,564,682,235,359,6636
+Regular Bike,230,10288,0,0,0,0,318
+Scooter share,0,4957,0,0,0,0,107
+Pilot ebike,0,4957,0,0,0,0,107
+"Gas Car, sensed",0,0,7582,0,0,0,901
+Bus,0,0,8414,15607,0,0,589
+Train,0,0,0,0,19651,0,24
+Train,795,825,0,2920,0,0,308
+Train,13,0,0,0,0,35726,415
+no_gt,2788,237,136,1016,563,815,14735
