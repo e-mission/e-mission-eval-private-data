@@ -29,6 +29,7 @@ def investigate_sensing_for_one_user_label(expanded_labeled_trips_df, label):
 
 def get_EI_moments_for_trip(mode,os,android_EI_moments,ios_EI_moments):
     # also works for a section.
+    if mode == 'air_or_hsr': mode = 'train'
     if os == "android":
         mean_EI = android_EI_moments["mean(EI)"][mode]
         var_EI = android_EI_moments["variance(EI)"][mode]  # variance given the inferred mode is <mode>
@@ -107,6 +108,8 @@ def get_predicted_EC_for_one_trip(ct, unit_dist_MCS_df, energy_dict):
 
         if section_modes[s] == 'car':
             mean_EI = energy_dict['Gas Car, sensed']
+        elif section_modes[s] == 'air_or_hsr':
+            mean_EI = energy_dict['Train']
         else:
             mean_EI = energy_dict[MODE_MAPPING_DICT[section_modes[s]]]
         var_EI = 0  # ignoring the EI variance since we're only looking at the prediction's performance
@@ -124,7 +127,7 @@ def get_predicted_EC_for_one_trip(ct, unit_dist_MCS_df, energy_dict):
 def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI_moments):
     # currently requires that ct is not sensed as air
 
-    #Initilize trip energy consumption
+    #Initialize trip energy consumption
     trip_mean_EC = 0
     trip_var_EC = 0
 
