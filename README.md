@@ -12,7 +12,7 @@ The error_bars branch implements and tests the ideas in e-mission-docs issue #79
 Relevant code is in the folder Error_bars.
 
 To run analyses, 
-1. Run store_errors.ipynb to save info on the mode and distance errors.
+1. Run store_errors.ipynb to save info on the mode and distance errors (or use the confusion matrices (android/ios_confusion.csv) and distance error info (unit_distance_MCS.csv) that I uploaded).
 2. Run parallel_add_sensed_sections.py. This will find the sensed sections for every trip and add 
 'section_modes' and 'section_distances' fields to each confirmed trip document.
     The expected and predicted energy consumptions calculations need these since they are at the section level.
