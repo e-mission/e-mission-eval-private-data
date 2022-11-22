@@ -124,8 +124,7 @@ def get_predicted_EC_for_one_trip(ct, unit_dist_MCS_df, energy_dict):
 
     return trip_mean_EC, trip_var_EC
 
-def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI_moments):
-    # currently requires that ct is not sensed as air
+def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI_moments, EI_length_covariance):
 
     #Initialize trip energy consumption
     trip_mean_EC = 0
@@ -156,7 +155,7 @@ def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI
 
         # Propagate variance for the trip
         mean_EC = mean_L[s]*mean_EI
-        var_EC = var_EI*mean_L[s]**2 + var_L[s]*mean_EI**2
+        var_EC = var_EI*mean_L[s]**2 + var_L[s]*mean_EI**2 + 2*EI_length_covariance*mean_EI*mean_L[s]
 
         # Add to total - follows from assumed independence of section errors.
         trip_mean_EC += mean_EC
@@ -164,10 +163,64 @@ def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI
 
     return trip_mean_EC, trip_var_EC
 
+def lagged_auto_cov(Xi,k):  # from https://stackoverflow.com/questions/20110590/how-to-calculate-auto-covariance-in-python, by RGWinston.
+    """
+    for series of values x_i, length N, compute empirical auto-cov with lag k
+    defined: 1/(N-1) * \sum_{i=0}^{N-t} ( x_i - x_s ) * ( x_{i+t} - x_s )
+    """
+    N = len(Xi)
+    if k >= N: return 0
 
-def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df):
+    # use sample mean estimate from whole series
+    Xs = np.mean(Xi)
+
+    # construct copies of series shifted relative to each other, 
+    # with mean subtracted from values
+    end_padded_series = np.zeros(N+k)
+    end_padded_series[:N] = Xi - Xs
+    start_padded_series = np.zeros(N+k)
+    start_padded_series[k:] = Xi - Xs
+
+    auto_cov = 1./(N-1) * np.dot( start_padded_series, end_padded_series )
+    return auto_cov
+
+def get_totals_and_errors(df, include_autocovariance = False):
+    # df should be an energy consumption dataframe for one user.
+
+    expected, predicted, actual = sum(df['expected']), sum(df['predicted']), sum(df['user_labeled'])
+    n_trips = len(df)
+
+    cov_sum = 0
+    if include_autocovariance == True:
+        if n_trips >= 50: # not calculating autocov if we do not have a large timeseries sample
+            for k in range(1,3):
+                expected_autocov_k = lagged_auto_cov(df.expected,k)
+                cov_sum += (n_trips - k)*2*expected_autocov_k
+        else:
+            cov_sum = (n_trips - 1)*2*5.5 + (n_trips - 2)*2*0.95
+        
+    aggregate_variance = df.confusion_var.sum() + cov_sum
+    # Calculate aggregate standard deviation. Including autocovariance is only appropriate for trips from the same user.
+    if aggregate_variance < 0: print(df.confusion_var.sum(), cov_sum)
+    sd = np.sqrt(aggregate_variance) if aggregate_variance > 0 else df.confusion_var.sum()
+    error_for_expected, error_for_predicted = helper_functions.relative_error(expected,actual)*100, helper_functions.relative_error(predicted,actual)*100
+
+    signed_error = expected - actual
+    error_over_sd = abs(signed_error/sd)
+
+    return {"total_expected": expected, "total_user_labeled": actual, 
+            "total_predicted": predicted, "aggregate_sd": sd, 
+            "percent_error_for_expected": error_for_expected, 
+            "percent_error_for_predicted": error_for_predicted,
+            "signed_error": signed_error,
+            "error_over_sd": error_over_sd}
+
+
+
+def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df, EI_length_covariance = 0, print_info = True):
 
     print("Computing energy consumption for each trip.")
+    print(f"Using EI length covariance = {EI_length_covariance}.")
     expected = []
     predicted = []
     user_labeled = []
@@ -181,7 +234,7 @@ def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_d
     for _,ct in df.iterrows():
 
         # Calculate expected energy consumption
-        trip_expected, trip_confusion_based_variance = get_expected_EC_for_one_trip(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df)
+        trip_expected, trip_confusion_based_variance = get_expected_EC_for_one_trip(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df, EI_length_covariance)
 
         # Calculate predicted energy consumption
         trip_predicted = get_predicted_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict)[0]
@@ -202,7 +255,7 @@ def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_d
         expected_error_list.append(expected_error)
         prediction_error_list.append(prediction_error)
 
-        if abs(expected_error) > 100: 
+        if (abs(expected_error) > 100) and (print_info == True): 
             print(f"Large EC error: EC user labeled, EC expected: {trip_user_labeled:.2f}, {trip_expected:.2f}")
             print(f"\tTrip info: mode_confirm,sensed,distance (mi): {ct['mode_confirm'],ct['section_modes']},{ct['distance']*METERS_TO_MILES:.2f}")
 
@@ -210,12 +263,15 @@ def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_d
     total_expected = sum(expected)
     total_predicted = sum(predicted)
     total_user_labeled = sum(user_labeled)
-    print(f"Total EC: expected, predicted, user labeled: {total_expected:.2f}, {total_predicted:.2f}, {total_user_labeled:.2f}")
-    print(f"standard deviation for expected: {np.sqrt(sum(confusion_based_variance)):.2f}")
+
 
     percent_error_expected = helper_functions.relative_error(total_expected,total_user_labeled)*100
     percent_error_predicted = helper_functions.relative_error(total_predicted,total_user_labeled)*100
-    print(f"Percent errors for expected and for predicted, including outliers: {percent_error_expected:.2f}, {percent_error_predicted:.2f}")
+
+    if print_info == True:
+        print(f"Percent errors for expected and for predicted, including outliers: {percent_error_expected:.2f}, {percent_error_predicted:.2f}")
+        print(f"Total EC: expected, predicted, user labeled: {total_expected:.2f}, {total_predicted:.2f}, {total_user_labeled:.2f}")
+        print(f"standard deviation for expected: {np.sqrt(sum(confusion_based_variance)):.2f}")
 
     # Append the values to expanded_labeled_trips
     elt_with_errors = df.copy()  # elt: expanded labeled trips
@@ -478,3 +534,184 @@ def get_aggregate_EC_with_extras(trips_df, only_sensing, unit_dist_MCS_df,
     #print(f"number of sections or trips: {N_sections,n_trips}")
     #print(air_count)
     return mean_EC_agg, var_EC_agg, avg_EI
+
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################ 
+## What happens when we ignore length errors?
+
+def get_user_labeled_EC_for_one_trip_no_length_error(ct,unit_dist_MCS_df,energy_dict):
+
+    length = ct["distance"]*METERS_TO_MILES
+    mean_L = length
+    var_L = 0
+    
+    mode = ct["mode_confirm"]  # need to make sure you convert it to an appropriate energy intensity.
+
+    # watch out for nan and air.
+    # could also search for 'drove' and 'friend' within string
+
+    # Check for nan first or you'll get the error
+    # argument of type 'float' is not iterable
+    if mode == np.nan or type(mode) == float: 
+        return 0,0
+    elif (('car' in mode) & ('alone' in mode)) or (mode == 'drove_alone'):
+        # later we can think about mixed shared and drove alone.
+        #if 'with others' in mode:
+        ''' EI_sr = energy_dict[MODE_MAPPING_DICT['shared_ride']]
+            EI_da = energy_dict[MODE_MAPPING_DICT['drove_alone']]
+            trip_user_EC = (EI_sr + EI_da)*mean_L/2'''
+        EI = energy_dict[MODE_MAPPING_DICT['drove_alone']]
+
+    elif (('car' in mode) & ('with others' in mode)) or mode == 'shared_ride':
+        EI = energy_dict[MODE_MAPPING_DICT['shared_ride']]
+    elif mode not in MODE_MAPPING_DICT:
+        return 0,0  # might want to think about how to handle this differently.
+    else:
+        EI = energy_dict[MODE_MAPPING_DICT[mode]]
+    
+    trip_user_EC = EI*mean_L
+    var_user_EC =  var_L*EI**2
+    return trip_user_EC, var_user_EC
+
+
+def get_predicted_EC_for_one_trip_no_length_error(ct, unit_dist_MCS_df, energy_dict):
+    # currently requires that ct is not sensed as air
+    #Initilize trip energy consumption
+
+    trip_mean_EC = 0
+    trip_var_EC = 0
+
+    # Get trip mode info.
+    # Get segments for the trip.
+    n_sections = len(ct["section_modes"])
+    section_modes = ct["section_modes"]
+    sections_lengths = np.array(ct["section_distances"])*METERS_TO_MILES   # 1 meter = 0.000621371 miles
+
+    mean_L = sections_lengths
+    var_L = 0  
+        
+    for s in range(0,n_sections):
+
+        if section_modes[s] == 'car':
+            mean_EI = energy_dict['Gas Car, sensed']
+        elif section_modes[s] == 'air_or_hsr':
+            mean_EI = energy_dict['Train']
+        else:
+            mean_EI = energy_dict[MODE_MAPPING_DICT[section_modes[s]]]
+        var_EI = 0  # ignoring the EI variance since we're only looking at the prediction's performance
+
+        # Propagate variance for the trip
+        mean_EC = mean_L[s]*mean_EI
+        var_EC = var_EI*mean_L[s]**2 + var_L*mean_EI**2
+
+        # Add to total - follows from assumed independence of section errors.
+        trip_mean_EC += mean_EC
+        trip_var_EC += var_EC
+
+    return trip_mean_EC, trip_var_EC
+
+def get_expected_EC_for_one_trip_no_length_error(ct, unit_dist_MCS_df,android_EI_moments, ios_EI_moments):
+    # currently requires that ct is not sensed as air
+
+    # Get operating system
+    os = ct['os']
+
+    #Initialize trip energy consumption
+    trip_mean_EC = 0
+    trip_var_EC = 0
+
+    # Get trip mode info.
+    # Get segments for the trip.
+    n_sections = len(ct["section_modes"])
+    section_modes = ct["section_modes"]
+    sections_lengths = np.array(ct["section_distances"])*METERS_TO_MILES   # 1 meter = 0.000621371 miles
+
+    mean_L = sections_lengths
+    var_L = 0  
+        
+    for s in range(0,n_sections):
+        # EI mean and variance.
+        # Perhaps it would be better to keep the moments in the same file?
+
+        # Later: switch to a map style function.
+        mean_EI, var_EI = get_EI_moments_for_trip(section_modes[s],os,android_EI_moments,ios_EI_moments)
+
+        # Propagate variance for the trip
+        mean_EC = mean_L[s]*mean_EI
+        var_EC = var_EI*mean_L[s]**2 + var_L*mean_EI**2 #+ 
+
+        # Add to total - follows from assumed independence of section errors.
+        trip_mean_EC += mean_EC
+        trip_var_EC += var_EC
+
+    return trip_mean_EC, trip_var_EC
+
+def compute_all_EC_values_no_length_error(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df):
+
+    print("Computing energy consumption for each trip.")
+    expected = []
+    predicted = []
+    user_labeled = []
+
+    confusion_based_variance = []
+    user_based_variance = []
+
+    expected_error_list = []
+    prediction_error_list = []
+
+    for _,ct in df.iterrows():
+
+        # Calculate expected energy consumption
+        trip_expected, trip_confusion_based_variance = get_expected_EC_for_one_trip_no_length_error(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df)
+
+        # Calculate predicted energy consumption
+        trip_predicted = get_predicted_EC_for_one_trip_no_length_error(ct,unit_dist_MCS_df,energy_dict)[0]
+        
+        # Calculate user labeled energy consumption
+        trip_user_labeled, trip_user_based_variance = get_user_labeled_EC_for_one_trip_no_length_error(ct,unit_dist_MCS_df,energy_dict)
+
+        expected.append(trip_expected)
+        predicted.append(trip_predicted)
+        user_labeled.append(trip_user_labeled)
+
+        confusion_based_variance.append(trip_confusion_based_variance)
+        user_based_variance.append(trip_user_based_variance)
+
+        prediction_error = trip_predicted - trip_user_labeled
+        expected_error = trip_expected - trip_user_labeled
+
+        expected_error_list.append(expected_error)
+        prediction_error_list.append(prediction_error)
+
+        if abs(expected_error) > 100: 
+            print(f"Large EC error: EC user labeled, EC expected: {trip_user_labeled:.2f}, {trip_expected:.2f}")
+            print(f"\tTrip info: mode_confirm,sensed,distance (mi): {ct['mode_confirm'],ct['section_modes']},{ct['distance']*METERS_TO_MILES:.2f}")
+
+
+    total_expected = sum(expected)
+    total_predicted = sum(predicted)
+    total_user_labeled = sum(user_labeled)
+    print(f"Total EC: expected, predicted, user labeled: {total_expected:.2f}, {total_predicted:.2f}, {total_user_labeled:.2f}")
+    print(f"standard deviation for expected: {np.sqrt(sum(confusion_based_variance)):.2f}")
+
+    percent_error_expected = helper_functions.relative_error(total_expected,total_user_labeled)*100
+    percent_error_predicted = helper_functions.relative_error(total_predicted,total_user_labeled)*100
+    print(f"Percent errors for expected and for predicted, including outliers: {percent_error_expected:.2f}, {percent_error_predicted:.2f}")
+
+    # Append the values to expanded_labeled_trips
+    elt_with_errors = df.copy()  # elt: expanded labeled trips
+    elt_with_errors['error_for_confusion'] = expected_error_list
+    elt_with_errors['error_for_prediction'] = prediction_error_list
+    elt_with_errors['expected'] = expected
+    elt_with_errors['predicted'] = predicted
+    elt_with_errors['user_labeled'] = user_labeled
+
+    # Append variances
+    elt_with_errors['confusion_var'] = confusion_based_variance
+    elt_with_errors['user_var'] = user_based_variance
+    elt_with_errors['confusion_sd'] = np.sqrt(np.array(confusion_based_variance))
+    elt_with_errors['user_sd'] = np.sqrt(np.array(user_based_variance))
+
+    return elt_with_errors
