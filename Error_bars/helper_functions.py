@@ -27,7 +27,7 @@ def get_expanded_labeled_trips(user_list):
 
 def relative_error(m,t):
     # measured minus true over true
-    return (m-t)/t
+    return (m-t)/t if t != 0 else np.nan
 
 
 def drop_unwanted_trips(df,drop_not_a_trip):
@@ -76,21 +76,35 @@ def get_ratios_for_dataset(df):
     drove_alone_distance = 0
     shared_ride_distance = 0
     all_modes_distance = 0
+    non_car_motorized = 0
     for mode in mode_distances.index:
         if mode == np.nan or type(mode) == float: continue
         elif (('car' in mode) & ('alone' in mode)) or (mode == 'drove_alone'):
             drove_alone_distance += mode_distances[mode]
         elif (('car' in mode) & ('with others' in mode)) or mode == 'shared_ride':
             shared_ride_distance += mode_distances[mode]    
+        elif mode in ['bus','taxi','free_shuttle','train']: # should ebike be considered motorized?
+            non_car_motorized += mode_distances[mode]
         all_modes_distance += mode_distances[mode]  # should nan trip distance be included?
 
-    ebike_distance = mode_distances.loc['pilot_ebike']
+    car_distance = drove_alone_distance + shared_ride_distance
+    #not_a_trip_distance = mode_distances.loc["not_a_trip"] if 'not_a_trip' in mode_distances.index else 0
+    motorized = car_distance + non_car_motorized
+    non_motorized = all_modes_distance - motorized # this will include not a trip.
+
+    non_moto_to_moto = non_motorized/motorized
+
+    #no_sensed_distance = df.groupby('primary_mode').sum()['distance']
+
+    other_distance = all_modes_distance - car_distance
+    ebike_distance = mode_distances.loc['pilot_ebike'] if 'pilot_ebike' in mode_distances.index else 0
     walk_distance = mode_distances.loc['walk']
 
     #print(f"Distance in drove alone, shared ride (m): {drove_alone_distance:.1f}, {shared_ride_distance:.1f}")
 
     r = drove_alone_distance/shared_ride_distance
-    car_proportion = (drove_alone_distance + shared_ride_distance)/all_modes_distance
+    car_proportion = car_distance/all_modes_distance
+    car_to_other = car_distance/other_distance
     ebike_proportion = ebike_distance/all_modes_distance
     walk_proportion = walk_distance/all_modes_distance
     drove_alone_proportion = drove_alone_distance/all_modes_distance
@@ -102,7 +116,9 @@ def get_ratios_for_dataset(df):
         "drove_alone_proportion": drove_alone_proportion,
         "shared_ride_proportion": shared_ride_proportion,
         "drove_alone_distance": drove_alone_distance,
-        "shared_ride_distance": shared_ride_distance
+        "shared_ride_distance": shared_ride_distance,
+        "car_to_other": car_to_other,
+        "non_moto_to_moto": non_moto_to_moto
     }
 
     return  proportion_dict
@@ -164,3 +180,5 @@ def plot_energy_consumption_by_mode(energy_consumption_df,program_name):
     program_percent_error_expected = 100*relative_error(df.expected.sum(),df.user_labeled.sum())
     plt.xlabel('Energy consumption (kWH)')
     plt.title(f"Energy consumption by mode for {program_name} (full % error for expected: {program_percent_error_expected:.2f})")
+
+
