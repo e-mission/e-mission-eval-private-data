@@ -39,6 +39,19 @@ def get_EI_moments_for_trip(mode,os,android_EI_moments,ios_EI_moments):
 
     return mean_EI, var_EI
 
+def get_mixed_variance_covariance_term_for_nonlinear_variance_propagation(x,y):
+    '''The formula I'm going for is 1/(n-1) sum[ (x_i - xbar)^2 * (y_i - ybar) ]
+    which looks like someone mushed the formulas for variance and covariance together.
+    x and y are np.arrays 
+    '''
+    xbar = np.mean(x)
+    ybar = np.mean(y)
+    n = len(x)
+    xterm = (x- xbar)**2
+    yterm = y - ybar
+    mixed_var_covar = 1/(n-1) * np.dot(xterm, yterm)
+    return mixed_var_covar
+
 def get_user_labeled_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict):
     
     # Get operating system
@@ -124,7 +137,8 @@ def get_predicted_EC_for_one_trip(ct, unit_dist_MCS_df, energy_dict):
 
     return trip_mean_EC, trip_var_EC
 
-def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI_moments, EI_length_covariance):
+def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI_moments, EI_length_covariance,\
+                                mixed_var_covar_EI_length, mixed_var_covar_length_EI):
 
     #Initialize trip energy consumption
     trip_mean_EC = 0
@@ -155,7 +169,10 @@ def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI
 
         # Propagate variance for the trip
         mean_EC = mean_L[s]*mean_EI
-        var_EC = var_EI*mean_L[s]**2 + var_L[s]*mean_EI**2 + 2*EI_length_covariance*mean_EI*mean_L[s]
+        var_term_1 = var_EI*mean_L[s]**2 + var_L[s]*mean_EI**2 + 2*EI_length_covariance*mean_EI*mean_L[s]
+        var_term_2 = 2*mean_L[s]* mixed_var_covar_EI_length + 2*mean_EI*mixed_var_covar_length_EI
+
+        var_EC = var_term_1 + var_term_2 if var_term_1 + var_term_2 > 0 else var_term_1  # to prevent negative variance estimates.
 
         # Add to total - follows from assumed independence of section errors.
         trip_mean_EC += mean_EC
@@ -192,32 +209,42 @@ def get_totals_and_errors(df, include_autocovariance = False):
 
     cov_sum = 0
     if include_autocovariance == True:
-        if n_trips >= 50: # not calculating autocov if we do not have a large timeseries sample
-            for k in range(1,3):
-                expected_autocov_k = lagged_auto_cov(df.expected,k)
-                cov_sum += (n_trips - k)*2*expected_autocov_k
-        else:
-            cov_sum = (n_trips - 1)*2*5.5 + (n_trips - 2)*2*0.95
-        
-    aggregate_variance = df.confusion_var.sum() + cov_sum
+        for u in df.user_id.unique():
+            auto_cov = df[df.user_id == u].auto_cov.iloc[0] # switch to just passing in a user -> autocov map?
+            n_trips = len(df[df.user_id == u])
+            if n_trips >= 50: # not calculating autocov if we do not have a large timeseries sample
+                coeffs = 2*np.array([n_trips - 1, n_trips - 2])
+                cov_sum += np.dot(coeffs,auto_cov)
+            # used median values of the autocovariance across users that I found. Maybe I should just ignore autocovariance for small sets of trips.
+            elif n_trips > 2:
+                cov_sum += (n_trips - 1)*2*5.5 + (n_trips - 2)*2*0.95
+
+    #print(f"sum of the autocov terms for this dataframe: {cov_sum}")
+    aggregate_variance = (df.confusion_var.sum() + cov_sum) # n_trips+ 5*
     # Calculate aggregate standard deviation. Including autocovariance is only appropriate for trips from the same user.
     if aggregate_variance < 0: print(df.confusion_var.sum(), cov_sum)
-    sd = np.sqrt(aggregate_variance) if aggregate_variance > 0 else df.confusion_var.sum()
+    final_variance = aggregate_variance if aggregate_variance > 0 else df.confusion_var.sum()
+
+    sd = np.sqrt(final_variance)
     error_for_expected, error_for_predicted = helper_functions.relative_error(expected,actual)*100, helper_functions.relative_error(predicted,actual)*100
 
     signed_error = expected - actual
     error_over_sd = abs(signed_error/sd)
 
     return {"total_expected": expected, "total_user_labeled": actual, 
-            "total_predicted": predicted, "aggregate_sd": sd, 
+            "total_predicted": predicted, 
+            "aggregate_sd": sd, 
+            "aggregate_var": final_variance,
             "percent_error_for_expected": error_for_expected, 
             "percent_error_for_predicted": error_for_predicted,
             "signed_error": signed_error,
-            "error_over_sd": error_over_sd}
+            "error_over_sd": error_over_sd,
+            "autocov_sum": cov_sum}
 
 
 
-def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df, EI_length_covariance = 0, print_info = True):
+def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df, EI_length_covariance = 0, 
+                        mixed_var_covar_EI_length = 0, mixed_var_covar_length_EI = 0, print_info = True):
 
     print("Computing energy consumption for each trip.")
     print(f"Using EI length covariance = {EI_length_covariance}.")
@@ -234,7 +261,8 @@ def compute_all_EC_values(df, unit_dist_MCS_df,energy_dict, android_EI_moments_d
     for _,ct in df.iterrows():
 
         # Calculate expected energy consumption
-        trip_expected, trip_confusion_based_variance = get_expected_EC_for_one_trip(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df, EI_length_covariance)
+        trip_expected, trip_confusion_based_variance = get_expected_EC_for_one_trip(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df,\
+                                                            EI_length_covariance, mixed_var_covar_EI_length, mixed_var_covar_length_EI)
 
         # Calculate predicted energy consumption
         trip_predicted = get_predicted_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict)[0]

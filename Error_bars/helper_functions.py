@@ -94,6 +94,8 @@ def get_ratios_for_dataset(df):
 
     non_moto_to_moto = non_motorized/motorized
 
+    primary_mode_percents = df.groupby('primary_mode').sum().distance/df.distance.sum()
+
     #no_sensed_distance = df.groupby('primary_mode').sum()['distance']
 
     other_distance = all_modes_distance - car_distance
@@ -181,4 +183,42 @@ def plot_energy_consumption_by_mode(energy_consumption_df,program_name):
     plt.xlabel('Energy consumption (kWH)')
     plt.title(f"Energy consumption by mode for {program_name} (full % error for expected: {program_percent_error_expected:.2f})")
 
+def plot_error_by_primary_mode(df,chosen_program, r_for_dataset, r, percent_error_expected,percent_error_predicted, mean_EC_all_user_labeled, output_path):
+   # Plot error totals by mode:
+    mode_expected_errors = {}
+    mode_predicted_errors = {}
 
+    for mode in df.primary_mode.unique():
+        if type(mode) == float: continue
+        user_labeled_total = sum(df[df.primary_mode == mode]['user_labeled'])
+        error_for_expected = sum(df[df.primary_mode == mode]['expected']) - user_labeled_total
+        error_for_predicted = sum(df[df.primary_mode == mode]['predicted']) - user_labeled_total
+
+        mode_expected_errors[mode] = error_for_expected
+        mode_predicted_errors[mode] = error_for_predicted
+
+    mode_expected_errors['Total'] = sum(mode_expected_errors.values())
+    mode_predicted_errors['Total'] = sum(mode_predicted_errors.values())
+    all_modes = list(mode_expected_errors.keys())
+
+    fig,axs = plt.subplots(1,2)
+    fig.set_figwidth(15)
+    fig.set_figheight(8)
+
+    title = f"Total energy consumption errors by mode for {chosen_program}. Dataset r = {r_for_dataset:.2f}, used r = {r:.2f}, percent errors: expected: {percent_error_expected:.2f} predicted: {percent_error_predicted:.2f}\
+    \nuser labeled EC: {mean_EC_all_user_labeled:.2f}"
+    fig.suptitle(title)
+
+    axs[0].grid(axis='x')
+    axs[1].grid(axis='x')
+
+    axs[0].barh(all_modes,[mode_expected_errors[x] for x in all_modes],height=0.5)
+    axs[0].set_title("Confusion based error share by primary mode")
+    axs[1].barh(all_modes,[mode_predicted_errors[x] for x in all_modes],height=0.5)
+    axs[1].set_title("Prediction error share by primary mode")
+
+    #fig_file = output_path+chosen_program+"_EC_mode_total_errors_"+which_car_precision+ "_for_car_precision_info"+ "_r_from_"+which_r+ "_" +remove_outliers + "_remove_outliers"+".png"
+
+    fig_file = output_path+chosen_program+"_EC_primary_mode_total_errors_"+"Mobilitynet_precision"+"r_from_dataset"+"keep_outliers.png"
+    fig.savefig(fig_file)
+    plt.close(fig)
