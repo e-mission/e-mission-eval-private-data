@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import get_EC
+import confusion_matrix_handling as cm_handling
 
 import sys
 sys.path.append('/Users/mallen2/alternate_branches/eval-compatible-server/e-mission-server')
@@ -318,7 +319,7 @@ def get_interval(mean,sd):
     '''Returns a list that includes the mean and the mean plus or minus one standard deviation.'''
     return [mean -sd, mean,mean + sd]
 
-def plot_estimates_with_sd_by_program(df, os_EI_moments_map,unit_dist_MCS_df, variance_method, user_spatial_cov_map = {}):
+def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, variance_method, user_spatial_cov_map = {}):
     '''
     Prints a plot showing the user labeled aggregate EC +- 1 standard deviation and the expected aggregate EC +- 1 standard deviation.
     Allows for different methods of computing the aggregate variance.
@@ -330,21 +331,20 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map,unit_dist_MCS_df, va
         'aggregate distance': calculate variance by finding total distance in each mode first.
         'spatial cov': calculate variance by summing individual trip variances and adding a spatial covariance term.
         any other string: calculate variance by summing individual trip variances.
-    user_spatial_cov_map: 
-
+    title_extension: string to append to the title.
+    user_spatial_cov_map: dictionary by user id of spatial covariance of trip level energy consumption.
     Returns the number of standard deviations the expected aggregate EC is from the truth. 
     '''
     
     df = df.copy()
     fig,axs = plt.subplots(2,4)
     fig.set_figwidth(25)
-    fig.set_figheight(14)
-    fig.suptitle('Total energy consumption by program based on user label (left) or expected value (right).\nDisplayed as mean +- 1 standard deviation.', fontsize=20)
+    fig.set_figheight(15)
     j = 0
     ax = axs.ravel() # flatten the axs object to 1D
     program_n_sd_map = {}
 
-    if (variance_method == 'spatial_cov') and (len(user_spatial_cov_map) != len(df)):
+    if (variance_method == 'spatial_cov') and (len(user_spatial_cov_map) != len(df.user_id.unique())):
         print('Invalid spatial covariance map.')
         return
 
@@ -352,11 +352,11 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map,unit_dist_MCS_df, va
         program_df = df[df.program == program]
 
         if variance_method == 'aggregate_distance':
-            totals_and_errors = get_EC.get_totals_and_errors(program_df, os_EI_moments_map, unit_dist_MCS_df, include_autocovariance=False)
+            totals_and_errors = get_EC.get_totals_and_errors(program_df, os_EI_moments_map, unit_dist_MCS_df)
             aggregate_sd = totals_and_errors['aggregate_sd']
         elif variance_method == 'spatial_cov':
             # Treat individual trips separately and as spatially dependent.
-            aggregate_sd = np.sqrt(program_df.confusion_var.sum() + get_EC.compute_variance_including_spatial_cov_for_trips_dataframe(program_df,user_spatial_cov_map))
+            aggregate_sd = np.sqrt(get_EC.compute_variance_including_spatial_cov_for_trips_dataframe(program_df,user_spatial_cov_map))
         else:
             # Treat individual trips separately and as independent.
             aggregate_sd = np.sqrt(program_df.confusion_var.sum())
@@ -377,22 +377,27 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map,unit_dist_MCS_df, va
         ax[j].plot(x,y,'bo')
         ax[j].set_ylim([0,max(1.1*user_labeled,1.1*max(y))]) # make sure not to cut off the top of the plot.
 
-        ax[j].set_xlabel(program)
-        ax[j].set_ylabel('Energy consumption (kWH)')
+        ax[j].set_xlabel(program, fontsize = 15)
+        ax[j].set_ylabel('Energy consumption (kWH)', fontsize = 10)
         j+=1
 
     program = 'all'
     program_df = df.copy()
     if variance_method == 'aggregate_distance':
-        totals_and_errors = get_EC.get_totals_and_errors(program_df, os_EI_moments_map, unit_dist_MCS_df, include_autocovariance=False)
+        totals_and_errors = get_EC.get_totals_and_errors(program_df, os_EI_moments_map, unit_dist_MCS_df)
         aggregate_sd = totals_and_errors['aggregate_sd']
+        title_extension = '\nVariance computed by aggregating distances by mode.'
     elif variance_method == 'spatial_cov':
         # Treat individual trips separately and as spatially dependent.
-        aggregate_sd = np.sqrt(program_df.confusion_var.sum() + get_EC.compute_variance_including_spatial_cov_for_trips_dataframe(program_df,user_spatial_cov_map))
+        aggregate_sd = np.sqrt(get_EC.compute_variance_including_spatial_cov_for_trips_dataframe(program_df,user_spatial_cov_map))
+        title_extension = '\nVariance computed as sum of individual trip variances and a spatial covariance term.'
     else:
         # Treat individual trips separately and as independent.
         aggregate_sd = np.sqrt(program_df.confusion_var.sum())
+        title_extension = '\nVariance computed as sum of individual trip variances.'
     
+    fig.suptitle(f'Total energy consumption by program based on user label (left) or expected value (right).\nDisplayed as mean +- 1 standard deviation.{title_extension}', fontsize=20)
+
     user_sd = np.sqrt(program_df.user_var.sum())
     user_labeled = program_df.user_labeled.sum()
     expected = program_df.expected.sum()
@@ -409,8 +414,8 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map,unit_dist_MCS_df, va
     ax[j].plot(x,y,'bo')
     ax[j].set_ylim([0,max(1.1*user_labeled,1.1*max(y))])  # make sure not to cut off the top of the plot.
 
-    ax[j].set_xlabel(program)
-    ax[j].set_ylabel('Energy consumption (kWH)')
+    ax[j].set_xlabel(program, fontsize = 15)
+    ax[j].set_ylabel('Energy consumption (kWH)', fontsize = 10)
 
     return program_n_sd_map
 
@@ -434,10 +439,9 @@ def get_program_percent_error_map(df):
 
     program = 'all'
     program_df = df.copy()
-    user_sd = np.sqrt(program_df.user_var.sum())
     user_labeled = program_df.user_labeled.sum()
     expected = program_df.expected.sum()
-    program_percent_error_map[program] = 100*relative_error(expected,user_labeled)
+    program_percent_error_map[program] = round(100*relative_error(expected,user_labeled),2)
 
     return program_percent_error_map
 
@@ -479,3 +483,89 @@ def plot_aggregate_EC_bar_chart(df):
     ax[j].set_xlabel(program, fontsize=16)
     #ax[j].set_ylabel('Energy consumption (kWH)', fontsize=16)
     plt.show()
+
+def construct_mostly_ebike_df(df):
+    df = df.copy()
+    all_ebike_trips = df[df.mode_confirm == 'pilot_ebike'].copy()
+    not_ebike_trips = df[df.mode_confirm != 'pilot_ebike'].copy()
+    n_trips_over_2 = int(np.floor(len(df)/2))
+    ebike_trip_list = np.random.choice(all_ebike_trips._id,len(df))
+    other_trip_list = np.random.choice(not_ebike_trips._id,n_trips_over_2)
+    half_ebike_trips = np.concatenate((ebike_trip_list, other_trip_list))
+
+    # Construct a dataframe the size of ceo with 50% of the trips being ebike
+    half_ebike_trips_idx = df[df._id.isin(half_ebike_trips)].index
+    return df.loc[half_ebike_trips_idx]
+
+def prior_mode_distribution_sensitivity_analysis(df, prior_mode_distributions_map, android_confusion, ios_confusion, unit_dist_MCS_df, energy_dict, EI_length_cov=0):
+    '''
+    df: an expanded labeled trips dataframe with primary modes
+    prior_mode_distributions: dictionary by name you assign to the prior of {dictionaries representing assumed prior probabilities of each mode}.
+    android_confusion: the confusion matrix associated with sensing on android phones
+    ios_confusion: the confusion matrix associated with sensing on ios phones
+    unit_dist_MCS_df: dataframe containing the mean and variance of trip length for a 1 unit long trip, for both operating systems.
+    energy_dict: dictionary by mode of energy intensities in kWH.
+
+    Returns: prior_and_error_dataframe: dataframe with name of the prior, percent error, and number of standard deviations the error is composed of for `df` when fully sensed
+        prior_name_energy_dataframe_map: an energy consumption dataframe for each named prior.
+    '''
+    df = df.copy()
+    prior_name_energy_dataframe_map = {}
+    prior_and_error_dataframe = pd.DataFrame(columns=["Prior Name", "Percent Error", "Estimated Standard Deviation (SD)",
+            "Number of Standard Deviations to Truth"])
+
+    for prior_name in prior_mode_distributions_map.keys():
+
+        # construct EI moments df.
+        if prior_name == 'MobilityNet Specific to OS':
+            prior_probs_android = android_confusion.sum(axis=1)/android_confusion.sum().sum()
+            prior_probs_ios = ios_confusion.sum(axis=1)/ios_confusion.sum().sum()
+
+            android_EI_moments_df = cm_handling.get_Bayesian_conditional_EI_expectation_and_variance(android_confusion,energy_dict, prior_probs_android)
+            ios_EI_moments_df = cm_handling.get_Bayesian_conditional_EI_expectation_and_variance(ios_confusion,energy_dict, prior_probs_ios)
+        elif prior_name == 'No Bayes Update':
+            android_EI_moments_df = cm_handling.get_conditional_EI_expectation_and_variance(android_confusion,energy_dict)
+            ios_EI_moments_df = cm_handling.get_conditional_EI_expectation_and_variance(ios_confusion,energy_dict)
+        else:
+            prior_probs = prior_mode_distributions_map[prior_name]
+            android_EI_moments_df = cm_handling.get_Bayesian_conditional_EI_expectation_and_variance(android_confusion,energy_dict, prior_probs)
+            ios_EI_moments_df = cm_handling.get_Bayesian_conditional_EI_expectation_and_variance(ios_confusion,energy_dict, prior_probs)
+
+        # calculate energy consumption.
+        print(f"{prior_name}")
+        energy_consumption_df = get_EC.compute_all_EC_values(df,
+            unit_dist_MCS_df, 
+            energy_dict,
+            android_EI_moments_df,
+            ios_EI_moments_df, 
+            EI_length_cov, print_info=False)
+
+        prior_name_energy_dataframe_map[prior_name] = energy_consumption_df 
+
+        # calculate error.
+        os_EI_moments_map = {'ios': ios_EI_moments_df, 'android': android_EI_moments_df}
+        totals_and_errors = get_EC.get_totals_and_errors(energy_consumption_df,os_EI_moments_map,unit_dist_MCS_df)
+        aggregate_sd = totals_and_errors['aggregate_sd']
+        error_over_sd = totals_and_errors['error_over_sd']
+        percent_error = 100*relative_error(totals_and_errors['total_expected'],totals_and_errors['total_user_labeled'])
+
+        prior_and_error_dataframe = prior_and_error_dataframe.append({"Prior Name": prior_name, "Percent Error": percent_error, "Estimated Standard Deviation (SD)": aggregate_sd,
+            "Number of Standard Deviations to Truth": error_over_sd},ignore_index = True)
+        
+    return prior_and_error_dataframe, prior_name_energy_dataframe_map
+
+def update_prior_dict(prior_probs_prespecified, available_ground_truth_modes):
+    '''
+    Constructs a map of ground truth modes and their assumed prior probabilities.
+    '''
+
+    n_other_modes = len(available_ground_truth_modes) - len(prior_probs_prespecified)
+
+    if len(prior_probs_prespecified) > 0:
+        prior_probs = prior_probs_prespecified.copy()
+        probability_remaining = 1 - sum(prior_probs_prespecified.values())
+        prior_probs.update({x: probability_remaining/n_other_modes for x in available_ground_truth_modes if x not in prior_probs_prespecified.keys()})
+    else:
+        prior_probs = {x: 1/n_other_modes for x in available_ground_truth_modes}
+
+    return prior_probs
