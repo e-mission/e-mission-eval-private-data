@@ -134,7 +134,7 @@ def get_ratios_for_dataset(df):
 
     other_distance = all_modes_distance - car_distance
     ebike_distance = mode_distances.loc['pilot_ebike'] if 'pilot_ebike' in mode_distances.index else 0
-    walk_distance = mode_distances.loc['walk']
+    walk_distance = mode_distances.loc['walk'] if 'walk' in mode_distances.index else 0
 
     #print(f"Distance in drove alone, shared ride (m): {drove_alone_distance:.1f}, {shared_ride_distance:.1f}")
 
@@ -223,6 +223,7 @@ def plot_energy_consumption_by_mode(energy_consumption_df,program_name, main_mod
     
     df = energy_consumption_df.copy()
     program_main_mode_labels = [x for x in main_mode_labels if x in df.mode_confirm.unique()] # 4c doesn't have train before May 2022.
+    # if you want all of the labels: program_main_mode_labels = df.mode_confirm.unique()
 
     program_main_modes_EC = df.groupby('mode_confirm').sum().loc[program_main_mode_labels]
     program_main_modes_EC = program_main_modes_EC[['expected','user_labeled']] # 'predicted',
