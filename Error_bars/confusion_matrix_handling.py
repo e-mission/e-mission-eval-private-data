@@ -53,6 +53,36 @@ def expectation(probs,values):
     # Takes two lists, probabilities and values, and returns the expected value.
     return sum(probs*values)
 
+def get_Bayesian_conditional_EI_expectation_and_variance(collapsed_confusion_matrix, energy_dict):
+    # df is the confusion matrix as a dataframe.
+
+    prior_probs = [1/len(collapsed_confusion_matrix.index)]* len(collapsed_confusion_matrix.index) # later try p_car = 0.4, everthing else is (1-0.4)/(n_non_car)
+
+    p_predicted_given_actual = collapsed_confusion_matrix.divide(collapsed_confusion_matrix.sum(axis=1), axis='rows')
+
+    likelihood_times_priors = p_predicted_given_actual.multiply(prior_probs, axis='rows')
+    normalizing_constants = likelihood_times_priors.sum(axis='rows')
+
+    likelihood_times_priors = p_predicted_given_actual.multiply(prior_probs, axis='rows')
+    normalizing_constants = likelihood_times_priors.sum(axis='rows')
+    prob_actual_given_predicted_df = likelihood_times_priors.divide(normalizing_constants, axis='columns').copy()
+
+    #print(prob_actual_given_predicted_df)
+
+    energy_intensities = np.array([energy_dict[mode] for mode in prob_actual_given_predicted_df.index]) # this will place each intensity in the same order as it appears in the confusion matrix.
+
+    # Compute expected energy intensities given predicted mode. X stands for energy intensity.
+    E_X = np.array([expectation(prob_actual_given_predicted_df[col], energy_intensities) for col in prob_actual_given_predicted_df.columns])  # gives an expected energy intensity given each predicted mode.
+
+    # Compute variances
+    sqr_EIs = energy_intensities**2
+    E_X2 = np.array([expectation(prob_actual_given_predicted_df[col], sqr_EIs) for col in prob_actual_given_predicted_df.columns])
+    V_X = E_X2 - E_X**2   # Var(X) = E[X^2] - (E[X])^2. Here this is an element-wise difference of lists.
+
+    # Place these into a dataframe.
+    EI_expectations_and_vars = pd.DataFrame({"mean(EI)": E_X, "variance(EI)": V_X})
+    return EI_expectations_and_vars.set_index(keys = prob_actual_given_predicted_df.columns)
+
 def get_conditional_EI_expectation_and_variance(df, energy_dict):
     # df is the confusion matrix as a dataframe.
 
@@ -169,6 +199,6 @@ MODE_MAPPING_DICT = {'drove_alone': 'Gas Car, drove alone',
  'ebike': 'Pilot ebike',
  'light_rail': 'Train',
  'no_gt': 'no_gt',
- 'air_or_hsr': 'train',
+ 'air_or_hsr': 'Train',
  'no_sensed': 'Not a Trip',
  'sensed_car': 'Gas Car, sensed'}
