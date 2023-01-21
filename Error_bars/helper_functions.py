@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import get_EC
 import confusion_matrix_handling as cm_handling
+from numpy.random import default_rng
 
 import sys
 sys.path.append('/Users/mallen2/alternate_branches/eval-compatible-server/e-mission-server')
@@ -558,11 +559,23 @@ def prior_mode_distribution_sensitivity_analysis(df, prior_mode_distributions_ma
 def update_prior_dict(prior_probs_prespecified, available_ground_truth_modes):
     '''
     Constructs a map of ground truth modes and their assumed prior probabilities.
+
+    prior_probs_prespecified: dictionary by mode of the prior probability that the mode occurs. 
+        This can be shorter than the number of ground truth modes. 
+        The remaining modes that you did not specify prior probabilities for will be assigned equal shares of the remaining probability.
+    available_ground_truth_modes: list of modes that can be found in the confusion matrix.
+    
+    Returns prior_probs, a dictionary by mode of prior probabilities for all modes found in `available_ground_truth_modes`
     '''
 
     n_other_modes = len(available_ground_truth_modes) - len(prior_probs_prespecified)
 
-    if len(prior_probs_prespecified) > 0:
+    if n_other_modes < 0:
+        print("Error: More mode probabilities were specified than the number of available ground truth modes.")
+        return
+    elif n_other_modes == 0:
+        prior_probs = prior_probs_prespecified
+    elif len(prior_probs_prespecified) > 0:
         prior_probs = prior_probs_prespecified.copy()
         probability_remaining = 1 - sum(prior_probs_prespecified.values())
         prior_probs.update({x: probability_remaining/n_other_modes for x in available_ground_truth_modes if x not in prior_probs_prespecified.keys()})
@@ -570,3 +583,29 @@ def update_prior_dict(prior_probs_prespecified, available_ground_truth_modes):
         prior_probs = {x: 1/n_other_modes for x in available_ground_truth_modes}
 
     return prior_probs
+
+### For splitting datasets
+def get_set_splits(df, n_rounds = 50, n_splits_per_round=10, print_info = True):
+    '''
+    Splits data into n_rounds * n_splits_per_round sets.
+    n_splits_per_round controls the size of the resulting data subsets. 
+    To get lots of datasets without shrinking the size too much, we use multiple rounds of splits.
+
+    Returns: large_size_splits: a numpy array of arrays of data indices.
+    '''
+    df = df.copy()
+    large_size_splits = []
+    for round in range(n_rounds):
+        rng = default_rng()
+        trip_index = np.array(df.index.copy())
+        rng.shuffle(trip_index)
+        # print(energy_consumption_df.index, trip_index)
+        splits = np.array_split(trip_index, n_splits_per_round)
+        large_size_splits.append(splits)
+    large_size_splits = np.array(large_size_splits, dtype=object).flatten()
+
+    if print_info == True:
+        print(f"Subset lengths: {len(large_size_splits[0])}. Number of subsets: {len(large_size_splits)}")
+    #print([len(s) for s in large_size_splits])
+
+    return large_size_splits
