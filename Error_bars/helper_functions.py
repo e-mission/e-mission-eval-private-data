@@ -47,7 +47,7 @@ def drop_unwanted_trips(df,drop_not_a_trip):
     df: pandas dataframe with participant trip mode labels.
     drop_not_a_trip: boolean representing whether to leave out trips with the user label "not_a_trip" or "no_travel" or with mode_confirm== nan.
 
-    Returns a copy of df with fewer trips.
+    Returns a dataframe copy of df with fewer trips.
     '''
 
     print('Dropping user labeled AIR trips and trips with no OS.')
