@@ -38,6 +38,30 @@ def relative_error(m,t):
     '''Compute the relative error. m is the measured value, t is the true value.'''
     return (m-t)/t if t != 0 else np.nan
 
+def find_sensed_car_energy_intensity(energy_dict, electric_car_proportion, drove_alone_to_shared_ride_ratio):
+    '''
+    Finds an energy intensity to use for all trips sensed as car, 
+    taking electric cars and shared rides into consideration.
+
+    Returns a float of energy intensity for a trip sensed as car.
+    
+    '''
+    # here I'm referring to car_load_factor: the number that we divide the drove alone energy intensity by
+    # for r = 1, car_load_factor is 4/3.
+    gas_car_drove_alone_EI = energy_dict["Gas Car, drove alone"]
+    e_car_drove_alone_EI = energy_dict["E-car, drove alone"]
+    # NOTE: MODE_MAPPING_DICT (seen in confusion_matrix_handling.py) is currently mapping 'drove_alone' 
+    # (from before the OpenPATH update that distinguished E-car and gas car) to 'Gas Car, drove alone.'
+    # MODE_MAPPING_DICT = {'drove_alone': 'Gas Car, drove alone', ...
+
+    # Include the chance of electric car in the sensed energy intensity.
+    sensed_car_drove_alone_EI = electric_car_proportion*e_car_drove_alone_EI + (1-electric_car_proportion)*gas_car_drove_alone_EI
+
+    # Include the chance that a sensed car trip is shared ride.
+    r = drove_alone_to_shared_ride_ratio
+    car_load_factor = (r+1)/(r+0.5)     
+    sensed_car_EI = sensed_car_drove_alone_EI/car_load_factor
+    return sensed_car_EI
 
 def drop_unwanted_trips(df,drop_not_a_trip):
     '''
@@ -556,7 +580,7 @@ def prior_mode_distribution_sensitivity_analysis(df, prior_mode_distributions_ma
         
     return prior_and_error_dataframe, prior_name_energy_dataframe_map
 
-def update_prior_dict(prior_probs_prespecified, available_ground_truth_modes):
+def construct_prior_dict(prior_probs_prespecified, available_ground_truth_modes):
     '''
     Constructs a map of ground truth modes and their assumed prior probabilities.
 
