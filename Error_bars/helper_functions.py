@@ -5,35 +5,6 @@ import get_EC
 import confusion_matrix_handling as cm_handling
 from numpy.random import default_rng
 
-import sys
-sys.path.append('/Users/mallen2/alternate_branches/eval-compatible-server/e-mission-server')
-
-import emission.storage.timeseries.abstract_timeseries as esta
-import emission.storage.decorations.trip_queries as esdtq
-
-
-
-def get_expanded_labeled_trips(user_list):
-    '''
-    Fetches labeled trips for each user in user_list from the database.
-
-    user_list: list of uuid objects
-    Returns a dataframe of labeled trips with expanded user inputs (1 column for each user input.)
-    '''
-    confirmed_trip_df_map = {}
-    labeled_trip_df_map = {}
-    expanded_labeled_trip_df_map = {}
-    for u in user_list:
-        ts = esta.TimeSeries.get_time_series(u)
-        ct_df = ts.get_data_df("analysis/confirmed_trip")
-
-        confirmed_trip_df_map[u] = ct_df
-        labeled_trip_df_map[u] = esdtq.filter_labeled_trips(ct_df)
-        expanded_labeled_trip_df_map[u] = esdtq.expand_userinputs(
-            labeled_trip_df_map[u])
-
-    return pd.concat(expanded_labeled_trip_df_map.values(), ignore_index=True)
-
 def relative_error(m,t):
     '''Compute the relative error. m is the measured value, t is the true value.'''
     return (m-t)/t if t != 0 else np.nan
@@ -251,12 +222,14 @@ def plot_energy_consumption_by_mode(energy_consumption_df,program_name, main_mod
     # if you want all of the labels: program_main_mode_labels = df.mode_confirm.unique()
 
     program_main_modes_EC = df.groupby('mode_confirm').sum().loc[program_main_mode_labels]
-    program_main_modes_EC = program_main_modes_EC[['expected','user_labeled']] # 'predicted',
+    program_main_modes_EC = program_main_modes_EC[['user_labeled', 'expected']] # 'predicted',
 
     program_main_modes_EC.plot(kind='barh')
     program_percent_error_expected = 100*relative_error(df.expected.sum(),df.user_labeled.sum())
-    plt.xlabel('Energy consumption (kWH)')
-    plt.title(f"Energy consumption by actual mode for {program_name} (full % error for expected: {program_percent_error_expected:.2f})")
+    plt.xlabel('Energy Consumption (MWH)', fontsize=14)
+    plt.legend(['user labeled', 'inferred'])
+    plt.ylabel('Actual Travel Mode', fontsize=14)
+    plt.title(f"Energy consumption by actual mode for {program_name}",fontsize=14)# (full % error for expected: {program_percent_error_expected:.2f})")
 
 def plot_error_by_primary_mode(df,chosen_program, r_for_dataset, r, percent_error_expected, percent_error_predicted, mean_EC_all_user_labeled, output_path):
     '''
@@ -354,8 +327,9 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
     os_EI_moments_map: dictionary by operating system of EI moments dataframes. (EI moments (mean and variance) are different for android vs ios)
     unit_dist_MCS_df: dataframe containing the mean and variance of trip length for a 1 unit long trip, for both operating systems.
     variance_method: 
-        'aggregate distance': calculate variance by finding total distance in each mode first.
-        'spatial cov': calculate variance by summing individual trip variances and adding a spatial covariance term.
+        'aggregate_section_distances': calculate variance by finding total distance in each mode using sections distances
+        'aggregate_primary_mode_distances': calculate variance by finding total distance in each mode using primary mode distances
+        'spatial_cov': calculate variance by summing individual trip variances and adding a spatial covariance term.
         any other string: calculate variance by summing individual trip variances.
     title_extension: string to append to the title.
     user_spatial_cov_map: dictionary by user id of spatial covariance of trip level energy consumption.
@@ -363,7 +337,7 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
     '''
     
     df = df.copy()
-    fig,axs = plt.subplots(2,4)
+    fig,axs = plt.subplots(3,3)
     fig.set_figwidth(25)
     fig.set_figheight(15)
     j = 0
@@ -374,12 +348,16 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
         print('Invalid spatial covariance map.')
         return
 
+    # Each program is plotted in the loop, then afterwards we plot for all programs.
     for program in df.program.unique():
         program_df = df[df.program == program]
 
-        if variance_method == 'aggregate_distance':
-            totals_and_errors = get_EC.get_totals_and_errors(program_df, os_EI_moments_map, unit_dist_MCS_df)
-            aggregate_sd = totals_and_errors['aggregate_sd']
+        if variance_method == 'aggregate_section_distances':
+            aggregate_var, _ = get_EC.compute_aggregate_variance_with_total_distance_from_sections(program_df, os_EI_moments_map, unit_dist_MCS_df)
+            aggregate_sd = np.sqrt(aggregate_var)
+        elif variance_method == 'aggregate_primary_mode_distances':
+            aggregate_var = get_EC.compute_aggregate_variance_by_primary_mode(program_df, os_EI_moments_map, unit_dist_MCS_df)
+            aggregate_sd = np.sqrt(aggregate_var)
         elif variance_method == 'spatial_cov':
             # Treat individual trips separately and as spatially dependent.
             aggregate_sd = np.sqrt(get_EC.compute_variance_including_spatial_cov_for_trips_dataframe(program_df,user_spatial_cov_map))
@@ -393,14 +371,14 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
 
         x = [0,0,0]
         y = get_interval(user_labeled,user_sd)
-        ax[j].plot(x,y,'go')
+        ax[j].scatter(x,y, c = 'tab:blue', marker= 'o')
         
         n_sd = abs(program_df.expected.sum() - program_df.user_labeled.sum())/aggregate_sd
         program_n_sd_map[program] = round(n_sd, 2)
 
         x = [1,1,1]
         y = get_interval(expected,aggregate_sd)
-        ax[j].plot(x,y,'bo')
+        ax[j].scatter(x,y, c = 'tab:orange', marker= 'o')
         ax[j].set_ylim([0,max(1.1*user_labeled,1.1*max(y))]) # make sure not to cut off the top of the plot.
 
         ax[j].set_xlabel(program, fontsize = 15)
@@ -409,10 +387,14 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
 
     program = 'all'
     program_df = df.copy()
-    if variance_method == 'aggregate_distance':
-        totals_and_errors = get_EC.get_totals_and_errors(program_df, os_EI_moments_map, unit_dist_MCS_df)
-        aggregate_sd = totals_and_errors['aggregate_sd']
-        title_extension = '\nVariance computed by aggregating distances by mode.'
+    if variance_method == 'aggregate_section_distances':
+        aggregate_var, _ = get_EC.compute_aggregate_variance_with_total_distance_from_sections(program_df, os_EI_moments_map, unit_dist_MCS_df)
+        aggregate_sd = np.sqrt(aggregate_var)
+        title_extension = '\nVariance computed by aggregating section distances by sensed mode.'
+    elif variance_method == 'aggregate_primary_mode_distances':
+        aggregate_var = get_EC.compute_aggregate_variance_by_primary_mode(program_df, os_EI_moments_map, unit_dist_MCS_df)
+        aggregate_sd = np.sqrt(aggregate_var)
+        title_extension = '\nVariance computed by aggregating trip distances by sensed primary mode.'
     elif variance_method == 'spatial_cov':
         # Treat individual trips separately and as spatially dependent.
         aggregate_sd = np.sqrt(get_EC.compute_variance_including_spatial_cov_for_trips_dataframe(program_df,user_spatial_cov_map))
@@ -430,14 +412,15 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
 
     x = [0,0,0]
     y = get_interval(user_labeled,user_sd)
-    ax[j].plot(x,y,'go')
+    ax[j].scatter(x,y, c = 'tab:blue', marker= 'o')
     
     n_sd = abs(program_df.expected.sum() - program_df.user_labeled.sum())/aggregate_sd
     program_n_sd_map[program] = round(n_sd, 2)
 
     x = [1,1,1]
     y = get_interval(expected,aggregate_sd)
-    ax[j].plot(x,y,'bo')
+    ax[j].scatter(x,y, c = 'tab:orange', marker= 'o')
+
     ax[j].set_ylim([0,max(1.1*user_labeled,1.1*max(y))])  # make sure not to cut off the top of the plot.
 
     ax[j].set_xlabel(program, fontsize = 15)
@@ -445,11 +428,12 @@ def plot_estimates_with_sd_by_program(df, os_EI_moments_map, unit_dist_MCS_df, v
 
     return program_n_sd_map
 
-def get_program_percent_error_map(df):
+def get_program_percent_error_map(df, estimate_type):
     '''
     Computes the aggregate energy consumption expected value percent error for each program
 
     df: pandas dataframe with trip level estimated and actual energy consumptions
+    estimate_type: string, either 'expected' or 'predicted'
 
     Returns a dictionary by program of percent errors.
     '''
@@ -460,13 +444,13 @@ def get_program_percent_error_map(df):
         program_df = df[df.program == program]
 
         user_labeled = program_df.user_labeled.sum()
-        expected = program_df.expected.sum()
+        expected = program_df[estimate_type].sum()
         program_percent_error_map[program] = 100*relative_error(expected,user_labeled)
 
     program = 'all'
     program_df = df.copy()
     user_labeled = program_df.user_labeled.sum()
-    expected = program_df.expected.sum()
+    expected = program_df[estimate_type].sum()
     program_percent_error_map[program] = round(100*relative_error(expected,user_labeled),2)
 
     return program_percent_error_map
@@ -568,15 +552,17 @@ def prior_mode_distribution_sensitivity_analysis(df, prior_mode_distributions_ma
 
         prior_name_energy_dataframe_map[prior_name] = energy_consumption_df 
 
-        # calculate error.
+        # calculate error for the current energy consumption df.
         os_EI_moments_map = {'ios': ios_EI_moments_df, 'android': android_EI_moments_df}
-        totals_and_errors = get_EC.get_totals_and_errors(energy_consumption_df,os_EI_moments_map,unit_dist_MCS_df)
-        aggregate_sd = totals_and_errors['aggregate_sd']
-        error_over_sd = totals_and_errors['error_over_sd']
-        percent_error = 100*relative_error(totals_and_errors['total_expected'],totals_and_errors['total_user_labeled'])
+        aggregate_var, _ = get_EC.compute_aggregate_variance_with_total_distance_from_sections(energy_consumption_df, os_EI_moments_map, unit_dist_MCS_df)
+        aggregate_sd = np.sqrt(aggregate_var)
+        total_expected = energy_consumption_df.expected.sum()
+        total_user_labeled = energy_consumption_df.user_labeled.sum()
+        error_over_sd = abs(total_expected - total_user_labeled)/aggregate_sd
+        percent_error = 100*relative_error(total_expected, total_user_labeled)
 
         prior_and_error_dataframe = prior_and_error_dataframe.append({"Prior Name": prior_name, "Percent Error": percent_error, "Estimated Standard Deviation (SD)": aggregate_sd,
-            "Number of Standard Deviations to Truth": error_over_sd},ignore_index = True)
+            "Number of Standard Deviations to Truth": error_over_sd}, ignore_index = True)
         
     return prior_and_error_dataframe, prior_name_energy_dataframe_map
 
@@ -608,28 +594,43 @@ def construct_prior_dict(prior_probs_prespecified, available_ground_truth_modes)
 
     return prior_probs
 
-### For splitting datasets
-def get_set_splits(df, n_rounds = 50, n_splits_per_round=10, print_info = True):
-    '''
-    Splits data into n_rounds * n_splits_per_round sets.
-    n_splits_per_round controls the size of the resulting data subsets. 
-    To get lots of datasets without shrinking the size too much, we use multiple rounds of splits.
-
-    Returns: large_size_splits: a numpy array of arrays of data indices.
-    '''
+# this version of show_bootstrap shows the distribution of errors rather than of expected values.
+def show_bootstrap_error_distribution(df,program,os_EI_moments_map,unit_dist_MCS_df, print_results):
+    print(program)
+    NB = 300
     df = df.copy()
-    large_size_splits = []
-    for round in range(n_rounds):
-        rng = default_rng()
-        trip_index = np.array(df.index.copy())
-        rng.shuffle(trip_index)
-        # print(energy_consumption_df.index, trip_index)
-        splits = np.array_split(trip_index, n_splits_per_round)
-        large_size_splits.append(splits)
-    large_size_splits = np.array(large_size_splits, dtype=object).flatten()
+    df = df.set_index("_id")
+    aggregate_EC_estimates = []
+    aggregate_EC_actual = []
+    sd_list = []
+    for j in range(0,NB):
+        bootstrap_idx = np.random.choice(df.index,len(df),replace=True)
+        bootstrap_sample = df.loc[bootstrap_idx]
+        aggregate_EC_estimates.append(sum(bootstrap_sample.expected))
+        aggregate_EC_actual.append(sum(bootstrap_sample.user_labeled))
+        sd_list.append(get_EC.get_totals_and_errors(df, os_EI_moments_map, unit_dist_MCS_df, include_autocovariance=False)['aggregate_sd'])
 
-    if print_info == True:
-        print(f"Subset lengths: {len(large_size_splits[0])}. Number of subsets: {len(large_size_splits)}")
-    #print([len(s) for s in large_size_splits])
+    aggregate_EC_estimates = np.array(aggregate_EC_estimates)
+    aggregate_EC_actual = np.array(aggregate_EC_actual)
+    errors = aggregate_EC_estimates - aggregate_EC_actual
 
-    return large_size_splits
+    totals_and_errors = get_EC.get_totals_and_errors(df, os_EI_moments_map, unit_dist_MCS_df, include_autocovariance=False)
+    total_expected = totals_and_errors['total_expected']
+    boot_mean = np.mean(aggregate_EC_estimates)
+    sd = totals_and_errors["aggregate_sd"]
+    boot_sd = np.sqrt(np.var(aggregate_EC_estimates))
+
+    if print_results == True:
+        plt.hist(errors)
+
+        print(f'our estimate: {total_expected:.2f}\nTrue value: {totals_and_errors["total_user_labeled"]:.2f}\nMean of bootstrap estimates: {boot_mean:.2f}')
+        print(f'our error: {sum(energy_consumption_df.expected - energy_consumption_df.user_labeled):.2f}')
+
+        print(f'our 1 sd interval: {total_expected - sd:.2f},{total_expected + sd:.2f}')
+        print(f'bootstrap 1 sd interval: {boot_mean - boot_sd:.2f},{boot_mean + boot_sd:.2f}')
+        print(f'bootstrap 2 sd interval: {boot_mean - 2*boot_sd:.2f},{boot_mean + 2*boot_sd:.2f}')
+
+    # I want to know: how does the error compare to the standard deviation each time?
+    return abs(errors)/np.array(sd_list)
+
+#show_bootstrap(energy_consumption_df,'all', os_EI_moments_map, unit_dist_MCS_df)

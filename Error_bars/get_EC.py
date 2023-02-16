@@ -149,7 +149,7 @@ def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI
         With all CEO + stage user labels, I estimated EI_length covariance as 1.29.
         You might also need to add the covariance to each trip energy consumption estimate since E[XY] = E[X]E[Y] + cov(X,Y), 
         but this might overestimate energy consumption if we use a covariance of 1.2 for every trip, 
-        which would be similar to assigning every trip to drove alone or a higher intensity mode for short trips.
+        which would be similar to assigning short trips to drove alone or a higher intensity mode.
     
     Returns the expected energy consumption mean and variance as a tuple of floats: trip_mean_EC, trip_var_EC.
     '''
@@ -190,7 +190,7 @@ def get_expected_EC_for_one_trip(ct, unit_dist_MCS_df,android_EI_moments, ios_EI
 
     return trip_mean_EC, trip_var_EC
 
-def compute_aggregate_variance(df, os_EI_moments_map, unit_dist_MCS_df):
+def compute_aggregate_variance_by_primary_mode(df, os_EI_moments_map, unit_dist_MCS_df):
     '''
     Finds total distances in each predicted mode and uses those totals in the final aggregate variance calculation.
 
@@ -267,7 +267,7 @@ def spatial_autocov_based_on_clusters(df, col_of_interest, print_statistics=Fals
     n = len(df)
     xbar = np.mean(df[col_of_interest])
     var_x = np.var(df[col_of_interest])
-    cov_sum = 0  # the final cov_sum will be sum_{i=1:n} (sum_{j=1:n} w_{ij} (x_i - xbar)(x_j - xbar))
+    cov_sum = 0  # the final value of cov_sum will be sum_{i=1:n} (sum_{j=1:n} w_{ij} (x_i - xbar)(x_j - xbar))
     W_sum = 0 
 
 
@@ -370,7 +370,7 @@ def get_totals_and_errors(df, os_EI_moments_map, unit_dist_MCS_df):
     expected, predicted, actual = sum(df['expected']), sum(df['predicted']), sum(df['user_labeled'])
 
     # Note: use this OR the spatial covariance function. Not both.
-    final_variance = compute_aggregate_variance(df, os_EI_moments_map, unit_dist_MCS_df)
+    final_variance = compute_aggregate_variance_by_primary_mode(df, os_EI_moments_map, unit_dist_MCS_df)
 
     sd = np.sqrt(final_variance)
     error_for_expected, error_for_predicted = helper_functions.relative_error(expected,actual)*100, helper_functions.relative_error(predicted,actual)*100
@@ -528,3 +528,124 @@ def compute_expected_EC_values(df, unit_dist_MCS_df,android_EI_moments_df,ios_EI
 
     return elt_with_errors
 
+def get_expected_EC_based_on_primary_mode_for_one_trip(ct, unit_dist_MCS_df, android_EI_moments, ios_EI_moments, energy_dict):
+    '''
+    Finds the expected mean energy consumption and variance for a single trip.
+    It uses the primary mode and the trip distance to calculate the mean, rather than using section modes and distances.
+    The variance is calculated with variance propagation of the energy intensity variance and the trip length variance.
+
+    ct:                     confirmed trip. A row of a labeled trips dataframe.
+    unit_dist_MCS_df:       dataframe containing the mean and variance of trip length for a 1 unit long trip, for both operating systems.
+    energy_dict:            dictionary by mode of energy intensities in kWH.
+    android_EI_moments:     dataframe of energy intensity mean and variance for each mode sensed with android.
+    ios_EI_moments:         dataframe of energy intensity mean and variance for each mode sensed with ios.
+    energy_dict:            dictionary by mode of energy intensity in kWH
+
+    EI_length_covariance:   (assumed to be 0). covariance between trip energy intensity and trip length.
+        To use this, we would need to either find a value based on past user labels or estimate this with sensed energy consumption.
+        I'm not sure whether this should be different for different sensed modes (ie, use a covariance conditional on sensed mode), 
+        since knowing the sensed mode tells us more information about the energy consumption than if we had no knowledge.
+
+        With all CEO + stage user labels, I estimated EI_length covariance as 1.29.
+        You might also need to add the covariance to each trip energy consumption estimate since E[XY] = E[X]E[Y] + cov(X,Y), 
+        but this might overestimate energy consumption if we use a covariance of 1.2 for every trip, 
+        which would be similar to assigning short trips to drove alone or a higher intensity mode.
+    
+    Returns the expected energy consumption mean.
+    '''
+    # Get operating system
+    os = ct['os']
+
+    # Get OS specific trip length info.
+    mean_for_unit_L = unit_dist_MCS_df[os]["mean"]
+    var_for_unit_L = unit_dist_MCS_df[os]["var"]
+
+    # Get primary mode
+    longest_section_distance = max(ct["section_distances"])*METERS_TO_MILES
+    primary_mode = ct["section_modes"][ct["section_distances"]==longest_section_distance]
+
+    # in case there are ever tied longest sections.
+    # pick the most energy intensive mode.
+    if isinstance(primary_mode,list): 
+        mini_energy_dict = {x: energy_dict[MODE_MAPPING_DICT[x]] for x in primary_mode}
+        primary_mode = max(mini_energy_dict, key=mini_energy_dict.get)
+        print(f"found a tie for longest section. Choosing {primary_mode}")
+
+    mean_EI, var_EI = get_EI_moments_for_trip(primary_mode,os,android_EI_moments,ios_EI_moments)
+
+    # use longest section distance or use trip distance?
+    # mean_EC = longest_section_distance*mean_for_unit_L*mean_EI
+    mean_L = ct["distance_miles"]*mean_for_unit_L
+    mean_EC = mean_L*mean_EI
+
+    return mean_EC
+    
+def compute_all_EC_values_from_primary_mode(df, unit_dist_MCS_df,energy_dict, android_EI_moments_df,ios_EI_moments_df):
+
+    print("Computing energy consumption for each trip.")
+    expected = []
+    user_labeled = []
+    user_var = []
+
+    for _,ct in df.iterrows():
+        # Calculate expected energy consumption
+        trip_expected = get_expected_EC_based_on_primary_mode_for_one_trip(ct,unit_dist_MCS_df,android_EI_moments_df,ios_EI_moments_df, energy_dict)
+        expected.append(trip_expected)
+
+        trip_user_labeled, trip_user_var = get_user_labeled_EC_for_one_trip(ct, unit_dist_MCS_df, energy_dict)
+        user_labeled.append(trip_user_labeled)
+        user_var.append(trip_user_var)
+
+    # Append the values to expanded_labeled_trips
+    elt = df.copy()  # elt: expanded labeled trips
+    elt['expected'] = expected
+    elt['user_labeled'] = user_labeled
+    elt['user_var'] = user_var
+
+    return elt
+
+
+def compute_aggregate_variance_with_total_distance_from_sections(df, os_EI_moments_map, unit_dist_MCS_df):
+    '''
+    Finds total distances in each predicted mode and uses those totals in the final aggregate variance calculation.
+
+    df: trips dataframe with a primary_mode column.
+    os_EI_moments_map: dictionary by operating system of energy intensity moments dataframes, which store mean and variance of energy intensity
+        for each predicted mode.
+    unit_dist_MCS_df: mean and variance estimates for unit distance trips.
+
+    Returns the aggregate variance (var_total) and a dictionary by OS of dictionaries by mode of total section distances 
+    '''
+    var_total = 0
+
+    distance_in_mode = {}
+    for os in df.os.unique():
+
+        single_os_trips = df[df.os == os].copy()
+
+        # Get OS specific trip length info.
+        mean_for_unit_L = unit_dist_MCS_df[os]["mean"]
+        var_for_unit_L = unit_dist_MCS_df[os]["var"]
+
+        sensed_mode_distance_map = {}
+        for _,ct in single_os_trips.iterrows():
+            sections_lengths = np.array(ct["section_distances"])*METERS_TO_MILES 
+            for i, mode in enumerate(ct["section_modes"]):
+                if mode not in sensed_mode_distance_map.keys():
+                    sensed_mode_distance_map[mode] = 0
+                # Add to the total distance traveled in this mode.
+                sensed_mode_distance_map[mode] += sections_lengths[i]
+        
+        distance_in_mode[os] = sensed_mode_distance_map
+
+        for mode in sensed_mode_distance_map.keys():
+            mean_L = sensed_mode_distance_map[mode]*mean_for_unit_L
+            var_L = sensed_mode_distance_map[mode]**2 * var_for_unit_L  
+            mode = 'train' if mode == 'air_or_hsr' else mode
+
+            mean_EI = os_EI_moments_map[os]["mean(EI)"][mode] 
+            var_EI = os_EI_moments_map[os]["variance(EI)"][mode] 
+
+            var_total += var_EI*mean_L**2 + var_L*mean_EI**2 #+ 2*cov(EI,L)*mean_EI*mean_L  if including covariance
+
+    return var_total, distance_in_mode
