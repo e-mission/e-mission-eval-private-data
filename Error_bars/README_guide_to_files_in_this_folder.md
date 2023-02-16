@@ -1,10 +1,13 @@
 ## This folder contains notebooks used to test the energy consumption mean and variance estimation.
 
 0. Get access to and mongorestore OpenPATH data. See the emission readme for more instructions.
-1. Run preliminary notebooks.
+1. Run add_sensed_sections_to_confirmed_trips.py 
+2. Run preliminary notebooks.
 
 
-### First notebooks to run:
+### First notebooks and scripts to run:
+##### add_sensed_sections_to_confirmed_trips.py 
+    adds "section_modes" and "section_distances" fields to confirmed trip documents in the database.
 ##### From mobilitynet: classification_analysis.ipynb and trajectory_distance_eval
     Use these to %store the error characteristics for mode and distance.
 ##### store_errors.ipynb
