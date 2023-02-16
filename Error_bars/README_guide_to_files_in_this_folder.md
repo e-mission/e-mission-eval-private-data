@@ -8,6 +8,12 @@
 ### First notebooks and scripts to run:
 ##### add_sensed_sections_to_confirmed_trips.py 
     adds "section_modes" and "section_distances" fields to confirmed trip documents in the database.
+##### check_for_sections.ipynb
+    checks whether we've added section_modes and section_distances to all confirmed trips in the database
+
+#### If you need to make changes to the confusion matrices or distance errors you use:
+Otherwise, the confusion matrices and distance mean and variance are in:
+- android_confusion.csv, ios_confusion.csv, unit_dist_MCS.csv
 ##### From mobilitynet: classification_analysis.ipynb and trajectory_distance_eval
     Use these to %store the error characteristics for mode and distance.
 ##### store_errors.ipynb
