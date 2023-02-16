@@ -12,18 +12,26 @@ def drop_rows_and_columns(df,row_list,column_list):
     df = df.drop(labels = column_list, axis = 1)
     return df
 
-def get_energy_dict(energy_intensity_dataframe):
+def get_energy_dict(energy_intensity_dataframe, units='kWH'):
     '''
     energy_intensity_dataframe: dataframe based on energy_intensity.csv, after converting to kilowatt hours.
+    units: (string) kWH or MWH 
 
     Returns a dictionary by mode of energy intensity in kWH/PMT
     '''
+    if units== 'kWH':
+        scaling_factor = 1  
+    elif units=='MWH':
+        scaling_factor = 0.0001
+    else:
+        print("Error: That choice of units is not supported yet.")
+        return
 
     energy_dict = {}
     for _,row in energy_intensity_dataframe.iterrows():
         # Convert to kWH/PMT if the energy intensity is not already in kWH/PMT.
         energy_intensity_kWH = row["energy_intensity_factor"] * 0.000293071 if row["fuel"] not in ["electric","human_powered"] else row["energy_intensity_factor"]
-        energy_dict[row['mode']] = energy_intensity_kWH
+        energy_dict[row['mode']] = energy_intensity_kWH*scaling_factor
 
     # Add 'no_gt'
     energy_dict['no_gt'] = 0
@@ -31,7 +39,7 @@ def get_energy_dict(energy_intensity_dataframe):
 
 def collapse_confusion_matrix(df, 
         rows_to_collapse = {"no_gt": ["no_gt_start","no_gt_middle", "no_gt_end"]},
-        columns_to_collapse = {"no_sensed": ["no_start","no_middle","no_end"]}
+        columns_to_collapse = {"no_sensed": ["no_sensed_start","no_sensed_middle","no_sensed_end"]}
     ):
     '''
     Merges rows or columns of the confusion matrix by addition. 
@@ -88,8 +96,8 @@ def get_Bayesian_conditional_EI_expectation_and_variance(collapsed_confusion_mat
     p_predicted_given_actual = collapsed_confusion_matrix.divide(collapsed_confusion_matrix.sum(axis=1), axis='rows')
 
     # temporary until I have the actual confusion matrix.
-    p_predicted_given_actual.loc['Pilot ebike','car'] = 0.40
-    p_predicted_given_actual.loc['Pilot ebike','bicycling'] -= 0.40
+    #p_predicted_given_actual.loc['Pilot ebike','car'] = 0.40
+    #p_predicted_given_actual.loc['Pilot ebike','bicycling'] -= 0.40
 
 
     likelihood_times_priors = p_predicted_given_actual.multiply(pd.Series(prior_mode_probs), axis='rows')
@@ -124,9 +132,11 @@ def get_conditional_EI_expectation_and_variance(df, energy_dict):
     '''
 
     df = df.copy()
-    duration_sensed_as_car_given_actual_ebike = 0.4*df.loc['Pilot ebike'].sum()
-    df.at['Pilot ebike','bicycling'] -=duration_sensed_as_car_given_actual_ebike
-    df.at['Pilot ebike','car'] += duration_sensed_as_car_given_actual_ebike
+
+    # Experimenting with ebike mispredicted as car accounted for, since MobilityNet doesn't have cases of it as of Feb 16, 2023.
+    #duration_sensed_as_car_given_actual_ebike = 0.4*df.loc['Pilot ebike'].sum()
+    #df.at['Pilot ebike','bicycling'] -=duration_sensed_as_car_given_actual_ebike
+    #df.at['Pilot ebike','car'] += duration_sensed_as_car_given_actual_ebike
     column_normd_matrix = df/df.sum(axis=0) # divide the entries in each column by the corresponding column sum
     energy_intensities = np.array([energy_dict[mode] for mode in df.index]) # this will place each intensity in the same order as it appears in the confusion matrix.
 
@@ -241,6 +251,7 @@ MODE_MAPPING_DICT = {'drove_alone': 'Gas Car, drove alone',
  'bicycling': 'Regular Bike',
  'escooter': 'Scooter share',
  'ebike': 'Pilot ebike',
+ 'e_bike': 'Pilot ebike',
  'light_rail': 'Train',
  'no_gt': 'no_gt',
  'air_or_hsr': 'Train',
