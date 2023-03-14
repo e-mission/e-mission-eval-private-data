@@ -46,8 +46,8 @@ def find_plot_clusters(user_df,
                        optics_min_samples=None,
                        optics_xi=0.05,
                        optics_cluster_method='xi',
-                       svm_min_size=6,
-                       svm_purity_thresh=0.7,
+                       svm_min_size=0,
+                       svm_purity_thresh=1.0,
                        svm_gamma=0.05,
                        svm_C=1,
                        map_loc=MTV_COORD):
@@ -148,8 +148,8 @@ def find_plot_clusters(user_df,
         ).add_to(m)
         # folium.TileLayer('Stamen Toner').add_to(m)
 
-        cluster_ids = df_for_cluster[
-            f"{loc_type}_{alg}_clusters_{r}_m"].unique()
+        cluster_ids = df_for_cluster[f"{loc_type}_{alg}_clusters_{r}_m"].unique(
+        )
 
         # draw the convex hull of the clusters
         for i in range(len(cluster_ids)):
@@ -284,8 +284,7 @@ def plot_user_trips(user_df,
                 color = COLORS[len(COLORS) - 1]
             purpose_trips = user_df[user_df[purpose_col] == purpose]
             for j in range(len(purpose_trips)):
-                coords = purpose_trips[loc_type +
-                                       '_loc'].iloc[j]['coordinates']
+                coords = purpose_trips[loc_type + '_loc'].iloc[j]['coordinates']
                 folium.Circle([coords[1], coords[0]],
                               radius=500,
                               color=color,
@@ -316,8 +315,7 @@ def plot_user_trips(user_df,
                 color = COLORS[len(COLORS) - 1]
             purpose_trips = user_df[user_df[purpose_col] == purpose]
             for j in range(len(purpose_trips)):
-                coords = purpose_trips[loc_type +
-                                       '_loc'].iloc[j]['coordinates']
+                coords = purpose_trips[loc_type + '_loc'].iloc[j]['coordinates']
                 folium.Circle([coords[1], coords[0]],
                               radius=100,
                               color=color,
@@ -356,8 +354,7 @@ def plot_user_trips(user_df,
             folium.CircleMarker([coords[1], coords[0]],
                                 radius=2.5,
                                 color=color,
-                                tooltip=purpose + ' ' +
-                                str(trip_idx)).add_to(m)
+                                tooltip=purpose + ' ' + str(trip_idx)).add_to(m)
     if plot_unlabeled:
         unlabeled_trips = user_df[user_df[purpose_col].isna()]
         for j in range(len(unlabeled_trips)):
