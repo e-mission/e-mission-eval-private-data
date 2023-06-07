@@ -1,3 +1,12 @@
+'''
+This script goes through every confirmed trip for each user and finds the sensed sections for that trip. 
+The sections are added to the "data" field of the confirmed trip jsons. 
+Input argument: location in the user list that you want to start with.
+    The script sometimes fails after running out of memory, so I added this argument to start where I left off.
+@author Michael Allen
+'''
+
+
 # from multiprocessing import Pool
 import sys
 import time

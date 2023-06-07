@@ -12,8 +12,9 @@ The error_bars branch implements and tests the ideas in e-mission-docs issue #79
 Relevant code is in the folder Error_bars.
 
 To run analyses, 
+0. Set up a docker container containing the database of trips. Instructions for this are in the OpenPATH General wiki in Teams.
 1. Run store_errors.ipynb to save info on the mode and distance errors (or use the confusion matrices (android/ios_confusion.csv) and distance error info (unit_distance_MCS.csv) that I uploaded).
-2. Run parallel_add_sensed_sections.py. This will find the sensed sections for every trip and add 
+2. Run add_sensed_sections_to_confirmed_trips.py. This will find the sensed sections for every trip and add 
 'section_modes' and 'section_distances' fields to each confirmed trip document.
     The expected and predicted energy consumptions calculations need these since they are at the section level.
     Currently, it is not parallel. If I'm remembering correctly, running this on the full CEO dataset up to May 2022 takes ~6 hours.
