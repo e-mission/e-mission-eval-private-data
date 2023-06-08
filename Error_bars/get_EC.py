@@ -60,7 +60,7 @@ def get_user_labeled_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict):
     if mode == np.nan or type(mode) == float: 
         return 0,0
     elif (('car' in mode) & ('alone' in mode)) or (mode == 'drove_alone'):
-        # later we can think about mixed shared and drove alone.
+        # later we can think about mixed shared and drove alone. (eg first segment shared, second segment alone)
         #if 'with others' in mode:
         ''' EI_sr = energy_dict[MODE_MAPPING_DICT['shared_ride']]
             EI_da = energy_dict[MODE_MAPPING_DICT['drove_alone']]
@@ -73,6 +73,8 @@ def get_user_labeled_EC_for_one_trip(ct,unit_dist_MCS_df,energy_dict):
         return 0,0  # might want to think about how to handle this differently.
     else:
         EI = energy_dict[MODE_MAPPING_DICT[mode]]
+        # one potential problem is that "same mode" is in mode mapping dict, even though we don't have an energy intensity.
+        # "same mode" was probably intended for a replaced_mode label.
     
     trip_user_EC = EI*mean_L
     var_user_EC =  var_L*EI**2

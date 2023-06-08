@@ -22,7 +22,7 @@ def get_energy_dict(energy_intensity_dataframe, units='kWH'):
     if units== 'kWH':
         scaling_factor = 1  
     elif units=='MWH':
-        scaling_factor = 0.0001
+        scaling_factor = 1e-3
     else:
         print("Error: That choice of units is not supported yet.")
         return
@@ -99,8 +99,9 @@ def get_Bayesian_conditional_EI_expectation_and_variance(collapsed_confusion_mat
     #p_predicted_given_actual.loc['Pilot ebike','car'] = 0.40
     #p_predicted_given_actual.loc['Pilot ebike','bicycling'] -= 0.40
 
-
+    # Find the numerator of Bayes rule for each (ground truth, inferred) confusion matrix entry
     likelihood_times_priors = p_predicted_given_actual.multiply(pd.Series(prior_mode_probs), axis='rows')
+
     normalizing_constants = likelihood_times_priors.sum(axis='rows')
     prob_actual_given_predicted_df = likelihood_times_priors.divide(normalizing_constants, axis='columns').copy()
 

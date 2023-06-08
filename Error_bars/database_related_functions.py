@@ -75,3 +75,19 @@ def get_expanded_labeled_trips(user_list):
     print(f"Labeling percent: {100*len(expanded_labeled_trips)/n_all_trips}")
 
     return expanded_labeled_trips
+
+def get_confirmed_trips(user_list):
+    '''
+    Fetches confirmed trips for each user in user_list from the database.
+
+    user_list: list of uuid objects
+    Returns a dataframe of confirmed trips
+    '''
+    ct_df_map = {}
+    for u in user_list:
+        ts = esta.TimeSeries.get_time_series(u)
+        ct_df_map[u] = ts.get_data_df("analysis/confirmed_trip")
+
+    confirmed_trips_df = pd.concat(ct_df_map.values(), ignore_index=True)
+
+    return confirmed_trips_df

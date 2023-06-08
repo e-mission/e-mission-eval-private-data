@@ -79,6 +79,30 @@ def drop_unwanted_trips(df,drop_not_a_trip):
                 continue'''
     return df
 
+def drop_custom_labels(df, MODE_MAPPING_DICT):
+    ''' Removes all trips for which the mode_confirm is not in MODE_MAPPING_DICT 
+    and car and alone/with others is not in the mode_confirm string'''
+    df = df.copy()
+
+    custom_mode_trip_list = []
+    for i,ct in df.iterrows():
+        mode = ct['mode_confirm']
+        if mode == np.nan or type(mode) == float: 
+            continue
+        elif (('car' in mode) & ('alone' in mode)) or (mode == 'drove_alone'):
+            continue
+        elif (('car' in mode) & ('with others' in mode)) or mode == 'shared_ride':
+            continue
+        elif mode not in MODE_MAPPING_DICT:
+            custom_mode_trip_list.append(ct['_id'])
+
+    # drop the indices where the _id is in custom_mode_trip_list
+    df = df.drop(df[df._id.isin(custom_mode_trip_list)].index)
+    return df
+
+
+
+
 def get_ratios_for_dataset(df):
     '''
     Finds various ratios and proportions of trip modes for df.
@@ -229,7 +253,7 @@ def plot_energy_consumption_by_mode(energy_consumption_df,program_name, main_mod
     plt.xlabel('Energy Consumption (MWH)', fontsize=14)
     plt.legend(['user labeled', 'inferred'])
     plt.ylabel('Actual Travel Mode', fontsize=14)
-    plt.title(f"Energy consumption by actual mode for {program_name}",fontsize=14)# (full % error for expected: {program_percent_error_expected:.2f})")
+    plt.title(f"Estimated energy consumption by actual mode for {program_name}",fontsize=14)# (full % error for expected: {program_percent_error_expected:.2f})")
 
 def plot_error_by_primary_mode(df,chosen_program, r_for_dataset, r, percent_error_expected, percent_error_predicted, mean_EC_all_user_labeled, output_path):
     '''
@@ -593,6 +617,11 @@ def construct_prior_dict(prior_probs_prespecified, available_ground_truth_modes)
         prior_probs = {x: 1/n_other_modes for x in available_ground_truth_modes}
 
     return prior_probs
+
+def print_top_mode_confirm_proportions(expanded_labeled_trips):
+    all_mode_distances = expanded_labeled_trips.groupby('mode_confirm').sum().distance_miles
+    all_mode_distance_proportions = all_mode_distances.divide(sum(expanded_labeled_trips.distance_miles))
+    print(all_mode_distance_proportions.sort_values(ascending=False)[0:10].round(4).to_latex())
 
 # this version of show_bootstrap shows the distribution of errors rather than of expected values.
 def show_bootstrap_error_distribution(df,program,os_EI_moments_map,unit_dist_MCS_df, print_results):
