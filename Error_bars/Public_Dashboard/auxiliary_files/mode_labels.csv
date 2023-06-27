@@ -1,0 +1,32 @@
+﻿replaced_mode,mode_confirm,mode_clean
+drove_alone,drove_alone,"Gas Car, drove alone"
+e_car_drove_alone,e_car_drove_alone,"E-car, drove alone"
+work_vehicle,work_vehicle,"Gas Car, drove alone"
+bus,bus,Bus
+train,train,Train
+free_shuttle,free_shuttle,Free Shuttle
+"train,_bus and walk","train,_bus and walk",Train
+train_and pilot e-bike,train_and pilot e-bike,Train
+taxi,taxi,Taxi/Uber/Lyft
+friend_picked me up,friend_picked me up,"Gas Car, with others"
+carpool_w/ friend to work,carpool_w/ friend to work,"Gas Car, with others"
+friend_carpool to work,friend_carpool to work,"Gas Car, with others"
+carpool_to work,carpool_to work,"Gas Car, with others"
+friend/co_worker carpool,friend/co_worker carpool,"Gas Car, with others"
+carpool_to lunch,carpool_to lunch,"Gas Car, with others"
+carpool,carpool,"Gas Car, with others"
+carpool_for lunch,carpool_for lunch,"Gas Car, with others"
+carpool_lunch,carpool_lunch,"Gas Car, with others"
+shared_ride,shared_ride,"Gas Car, with others"
+e_car_shared_ride,e_car_shared_ride,"E-car, with others"
+bikeshare,bikeshare,Bikeshare
+scootershare,scootershare,Scooter share
+pilot_ebike,pilot_ebike,E-bike
+e-bike,e-bike,E-bike
+walk,walk,Walk
+skateboard,skateboard,Skate board
+bike,bike,Regular Bike
+the_friend who drives us to work was running errands after the shift before dropping me off. not a trip of mine.,the_friend who drives us to work was running errands after the shift before dropping me off. not a trip of mine.,Not a Trip
+not_a_trip,not_a_trip,Not a Trip
+no_travel,,No Travel
+same_mode,,Same Mode

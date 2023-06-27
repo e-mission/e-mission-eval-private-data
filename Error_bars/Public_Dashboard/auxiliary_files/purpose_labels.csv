@@ -1,0 +1,47 @@
+﻿purpose_confirm,bin_purpose
+work_travel,Work
+work,Work
+home,Home
+meal,Meal
+shopping,Shopping
+personal_med,Personal/Medical
+exercise,Recreation/Exercise
+transit_transfer,Transit transfer
+pick_drop,Pick-up/Drop off
+entertainment,Entertainment/Social
+car_mechanic,Other
+school,School
+revisado_bike,Other
+placas_de carro,Other
+community_walk,Entertainment/Social
+gardening,Entertainment/Social
+visiting,Entertainment/Social
+church,Religious
+community_garden,Entertainment/Social
+community_meeting,Entertainment/Social
+visit_a friend,Entertainment/Social
+aseguranza,Other
+meeting_bike,Entertainment/Social
+gas_station,Other
+iglesia,Religious
+curso,School
+mi_hija recién aliviada,Entertainment/Social
+servicio_comunitario,Entertainment/Social
+pago_de aseguranza,Other
+grupo_comunitario,Entertainment/Social
+caminata_comunitaria,Entertainment/Social
+bank,Other
+religious,Religious
+no_travel,No travel
+work_break - short walk,Entertainment/Social
+work_- lunch break,Meal
+friend_was running errands before dropping me off after work,Other
+"multiple_errands, etc.",Other
+lunch_break,Meal
+break,Entertainment/Social
+pet,Entertainment/Social
+recording_performance at park,Entertainment/Social
+not_a trip,not_a_trip
+on_the way home,Home
+other,Other
+nan,nan
