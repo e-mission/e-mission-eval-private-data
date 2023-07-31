@@ -18,8 +18,8 @@ it needs to be included while running them.
     ```
     $ source setup.sh
     ```
-
-1. If you have, activate
+ 
+ 1. If you have, activate
 
     ```
     $ source activate.sh
@@ -37,6 +37,37 @@ $ cp -r ../conf .
 ```
 $ ../bin/em-jupyter-notebook.sh
 ```
+
+>   **_NOTE_**  
+>
+> While running a notebook for the first time, if the import module commands throws up an error as below :
+>
+>    ```console
+>    $ db.conf not found 
+>    ``` 
+>    OR
+>
+>    ```console
+>    $ db.conf.sample not found
+>    ```
+>
+>The solution is to :
+>
+>* Ensure that the variable ```ENV_SERVER_HOME``` is present in the environment variable's list and has the right path using 
+>
+>    ```
+>    $ env
+>    ```
+>
+>
+>* Move the conf files AGAIN using :
+>
+>    ```console
+>    cp -r $EMISSION_SERVER_HOME/conf .
+>    ```
+>    
+>    Running that command should get it to work.
+
 
 ### Loading data
 
