@@ -30,7 +30,8 @@ it needs to be included while running them.
     $ source activate.sh
     ```
 
-1. Access the visualizations of interest and copy the config over
+1. Access the visualizations of interest and copy the config over. The `<eval_folder>` mentioned below can be any folder containing notebooks and/or .py files for visualisation or other purposes. E.g. : `TRB_label_assist` is one such folder.
+
 
 ```
 $ cd <eval_folder>
