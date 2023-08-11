@@ -18,7 +18,6 @@ from sklearn.preprocessing import StandardScaler
 # eval-private-data-compatibility
 import emission.analysis.modelling.tour_model_extended.similarity as eamts
 import emission.storage.decorations.trip_queries as esdtq
-import emission.analysis.modelling.trip_model.greedy_similarity_binning as eamtg
 
 EARTH_RADIUS = 6371000
 ALG_OPTIONS = [
@@ -100,18 +99,20 @@ def add_loc_clusters(
 
     elif alg == 'naive':
         for r in radii:
+            # this is using a modified Similarity class that bins start/end
+            # points separately before creating trip-level bins
+            sim_model = eamts.Similarity(loc_df,
+                                         radius_start=r,
+                                         radius_end=r,
+                                         shouldFilter=False,
+                                         cutoff=False)
+            # we only bin the loc_type points to speed up the alg. avoid
+            # unnecessary binning since this is really slow
+            sim_model.bin_helper(loc_type=loc_type)
+            labels = sim_model.data_df[loc_type + '_bin'].to_list()
 
-            model_config = {
-                "metric": "od_similarity",
-                "similarity_threshold_meters": r,  # meters,
-                "apply_cutoff": False,
-                "incremental_evaluation": False
-            }
-            model = eamtg.GreedySimilarityBinning(model_config)
-            
-            model.fit(loc_df)    ## TODO: Need to feed data in ConfirmedTrip format. Currently wrong format 
-
-            labels=model.tripLabels
+            # # pd.Categorical converts the type from int to category (so
+            # # numerical operations aren't possible)
             # loc_df.loc[:, f"{loc_type}_{alg}_clusters_{r}_m"] = pd.Categorical(
             #     labels)
             loc_df.loc[:, f"{loc_type}_{alg}_clusters_{r}_m"] = labels
