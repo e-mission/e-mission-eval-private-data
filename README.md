@@ -24,7 +24,7 @@ it needs to be included while running them.
     ```
     $ source setup.sh
     ```
- 1. If you have, activate
+1. If you have, activate
 
     ```
     $ source activate.sh
