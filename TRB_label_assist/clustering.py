@@ -43,12 +43,6 @@ def CleanEntryTypeData(loc_df,loc_entry):
 
     ids_in_df=set(loc_df['_id'])
     filtered_loc_entry= [entry for entry in loc_entry if entry['_id'] in ids_in_df ]
-    for k in range(len(filtered_loc_entry)):
-        filtered_loc_entry[k]['data']={}
-        filtered_loc_entry[k]['data']['user_input']=filtered_loc_entry[k]['user_input']
-        filtered_loc_entry[k]['data']['start_loc']=filtered_loc_entry[k]['start_loc']
-        filtered_loc_entry[k]['data']['end_loc']=filtered_loc_entry[k]['end_loc']
-
     return filtered_loc_entry
 
 
