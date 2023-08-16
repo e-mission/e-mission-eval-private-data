@@ -37,6 +37,7 @@ COLORS = [
 
 
 def find_plot_clusters(user_df,
+                       user_entry,
                        loc_type,
                        alg,
                        SVM=False,
@@ -116,6 +117,7 @@ def find_plot_clusters(user_df,
 
     df_for_cluster = add_loc_clusters(
         df_for_cluster,
+        user_entry,
         radii=radii,
         alg=alg,
         SVM=SVM,
