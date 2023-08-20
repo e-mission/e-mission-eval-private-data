@@ -49,6 +49,7 @@ def CleanEntryTypeData(loc_df,loc_entry):
 def add_loc_clusters(
         loc_df,
         loc_entry,
+        clustering_way,
         radii,
         loc_type,
         alg,
@@ -130,6 +131,7 @@ def add_loc_clusters(
                 "metric": "od_similarity",
                 "similarity_threshold_meters": r,  # meters,
                 "apply_cutoff": False,
+                "clustering_way": clustering_way,
                 "incremental_evaluation": False
             }    
 
