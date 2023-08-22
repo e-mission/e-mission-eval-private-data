@@ -120,6 +120,7 @@ PREDICTORS = {
 
 
 def cross_val_predict(model,
+                      ct_entry,
                       model_params=None,
                       user_df=None,
                       k=5,
@@ -171,7 +172,10 @@ def cross_val_predict(model,
 
         # train the model
         logging.info("About to fit the model %s" % model)
-        model_.fit(train_trips)
+        if model_.__class__.__name__ == 'ClusterExtrapolationClassifier' :
+            model_.fit(train_trips,ct_entry)
+        else:
+            model_.fit(train_trips)
 
         logging.info("About to generate predictions for the model %s" % model)
         # generate predictions
@@ -216,6 +220,7 @@ def cross_val_predict(model,
 
 
 def cv_for_all_users(model,
+                     ct_entry,
                      uuid_list,
                      expanded_trip_df_map=None,
                      model_params=None,
@@ -233,6 +238,7 @@ def cv_for_all_users(model,
         logging.info("------ START: predictions for user %s and model %s" % (user, model))
         try:
             results = cross_val_predict(model,
+                                        ct_entry,
                                         model_params,
                                         user_df=expanded_trip_df_map[user],
                                         k=k,
@@ -265,7 +271,8 @@ def cv_for_all_users(model,
     return cross_val_all
 
 
-def cv_for_all_algs(uuid_list,
+def cv_for_all_algs(ct_entry,
+                    uuid_list,
                     expanded_trip_df_map,
                     model_names=list(PREDICTORS.keys()),
                     override_prior_runs=True,
@@ -289,6 +296,7 @@ def cv_for_all_algs(uuid_list,
             start_time = datetime.now()
             model, model_params = PREDICTORS[model_name]
             cv_df = cv_for_all_users(model,
+                                     ct_entry,
                                      uuid_list=uuid_list,
                                      expanded_trip_df_map=expanded_trip_df_map,
                                      model_params=model_params,
@@ -627,6 +635,8 @@ def get_cluster_metrics(trip_df):
 
 
 def run_eval_cluster_metrics(expanded_all_trip_df_map,
+                             ct_entry,
+                             clustering_way,
                              user_list,
                              radii,
                              loc_type,
@@ -730,6 +740,8 @@ def run_eval_cluster_metrics(expanded_all_trip_df_map,
 
                     user_trips = add_loc_clusters(
                         user_trips,
+                        ct_entry,
+                        clustering_way,
                         radii=radii,
                         alg=alg,
                         SVM=SVM,
