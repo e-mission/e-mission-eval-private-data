@@ -172,11 +172,7 @@ def cross_val_predict(model,
 
         # train the model
         logging.info("About to fit the model %s" % model)
-        if model_.__class__.__name__ == 'ClusterExtrapolationClassifier' :
-            model_.fit(train_trips,ct_entry)
-        else:
-            model_.fit(train_trips)
-
+        model_.fit(train_trips,ct_entry)
         logging.info("About to generate predictions for the model %s" % model)
         # generate predictions
         pred_df = model_.predict(test_trips)
