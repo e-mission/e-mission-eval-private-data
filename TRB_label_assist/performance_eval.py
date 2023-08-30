@@ -9,6 +9,7 @@ import logging
 import os
 import time
 from datetime import datetime
+import pathlib
 
 import sklearn.metrics as sm
 from sklearn.metrics.cluster import contingency_matrix
@@ -234,7 +235,7 @@ def cv_for_all_users(model,
         logging.info("------ START: predictions for user %s and model %s" % (user, model))
         try:
             results = cross_val_predict(model,
-                                        ct_entry,
+                                        ct_entry[user],
                                         model_params,
                                         user_df=expanded_trip_df_map[user],
                                         k=k,
@@ -277,6 +278,7 @@ def cv_for_all_algs(ct_entry,
                     min_samples=False,
                     raise_errors=False):
     cv_results = {}
+    pathlib.Path('first_trial_results').mkdir(parents=True,exist_ok=True) #needed first time
     for model_name in model_names:
         csv_path = f'first_trial_results/cv results {model_name}.csv'
         if not override_prior_runs and os.path.exists(csv_path):
