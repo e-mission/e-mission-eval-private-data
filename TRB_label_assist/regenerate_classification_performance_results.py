@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from uuid import UUID
-
+import itertools
 import emission.storage.timeseries.abstract_timeseries as esta
 import emission.storage.decorations.trip_queries as esdtq
 import emission.analysis.modelling.trip_model.run_model as eamtr
@@ -19,8 +19,8 @@ expanded_all_trip_df_map = {}
 ct_entry={}
 for u in all_users:
     ts = esta.TimeSeries.get_time_series(u)
-    ct_df = ts.get_data_df("analysis/confirmed_trip")
-    ct_entry[u]=eamtr._get_training_data(u,None)
+    ct_entry[u]=eamtr._get_training_data(u,None)    
+    ct_df = ts.to_data_df("analysis/confirmed_trip",itertools.chain(ct_entry[u]))    
     confirmed_trip_df_map[u] = ct_df
     labeled_trip_df_map[u] = esdtq.filter_labeled_trips(ct_df)
     expanded_labeled_trip_df_map[u] = esdtq.expand_userinputs(

@@ -16,7 +16,6 @@ from sklearn.preprocessing import StandardScaler
 # our imports
 # NOTE: this requires changing the branch of e-mission-server to
 # eval-private-data-compatibility
-# import emission.analysis.modelling.tour_model_extended.similarity as eamts
 import emission.storage.decorations.trip_queries as esdtq
 import emission.analysis.modelling.trip_model.greedy_similarity_binning as eamtg
 
