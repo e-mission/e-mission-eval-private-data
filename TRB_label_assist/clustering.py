@@ -40,8 +40,8 @@ def cleanEntryTypeData(loc_df,trip_entry):
 
     """
 
-    ids_in_df=set(loc_df['_id'])
-    filtered_trip_entry = list(filter(lambda entry: entry['_id'] in ids_in_df, trip_entry))
+    ids_in_df=loc_df['_id']
+    filtered_trip_entry = list(filter(lambda entry: entry['_id'] in ids_in_df.values, trip_entry))
     return filtered_trip_entry
 
 
