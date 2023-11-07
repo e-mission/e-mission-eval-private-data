@@ -131,7 +131,6 @@ def add_loc_clusters(
                 "similarity_threshold_meters": r,  # meters,
                 "apply_cutoff": False,
                 "clustering_way": clustering_way,
-                "shouldFilter": False,
                 "incremental_evaluation": False
             }    
 
