@@ -121,12 +121,13 @@ class Cluster(SetupMixin, metaclass=ABCMeta):
     """ blueprint for clustering models. """
 
     @abstractmethod
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,unused=None):
         """ Fit the clustering algorithm.  
         
             Args: 
                 train_df (DataFrame): dataframe of labeled trips
-                ct_entry (List) : A list of Entry type of labeled and unlabeled trips 
+                unused (List) : A list of Entry type of labeled and unlabeled trips which is not used in current function. 
+                                Passed to keep fit function generic.
             
             Returns:
                 self
@@ -165,12 +166,13 @@ class Cluster(SetupMixin, metaclass=ABCMeta):
 class TripClassifier(SetupMixin, metaclass=ABCMeta):
 
     @abstractmethod
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,unused=None):
         """ Fit a classification model.  
         
             Args: 
                 train_df (DataFrame): dataframe of labeled trips
-                ct_entry (List) : A list of Entry type of labeled and unlabeled trips 
+                unused (List) : A list of Entry type of labeled and unlabeled trips which is not used in current function. 
+                                Passed to keep fit function generic.
             
             Returns:
                 self
@@ -300,7 +302,7 @@ class RefactoredNaiveCluster(Cluster):
 
         return self
 
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,ct_entry_list=None):
         # clean data
         logging.info("PERF: Fitting RefactoredNaiveCluster with size %s" % len(train_df))
         self.train_df = self._clean_data(train_df)
@@ -335,7 +337,7 @@ class RefactoredNaiveCluster(Cluster):
           
         # fit the bins
         self.sim_model= eamtg.GreedySimilarityBinning(model_config)
-        cleaned_trip_entry= clustering.cleanEntryTypeData(self.train_df,ct_entry)
+        cleaned_trip_entry= clustering.cleanEntryTypeData(self.train_df,ct_entry_list)
         self.sim_model.fit(cleaned_trip_entry)
 
         labels = [int(l) for l in self.sim_model.tripLabels]
@@ -351,6 +353,7 @@ class RefactoredNaiveCluster(Cluster):
         elif self.loc_type == 'end':
             bins = self.sim_model.bins
 
+        bins = {int(key):int(value) for key,value in bins.items()}
         labels = []
 
         # for each trip in the test list:
@@ -380,7 +383,7 @@ class RefactoredNaiveCluster(Cluster):
             copied from the Similarity class on the e-mission-server. 
         """
         for t_idx in bin:
-            trip_in_bin = self.train_df.iloc[int(t_idx)]
+            trip_in_bin = self.train_df.iloc[t_idx]
             if not self._distance_helper(trip, trip_in_bin, loc_type):
                 return False
         return True
@@ -457,7 +460,7 @@ class DBSCANSVMCluster(Cluster):
 
         return self
 
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,unused=None):
         """ Creates clusters of trip points. 
             self.train_df will be updated with columns containing base and 
             final clusters. 
@@ -468,7 +471,8 @@ class DBSCANSVMCluster(Cluster):
 
             Args:
                 train_df (dataframe): dataframe of labeled trips
-                ct_entry (List) : A list of Entry type of labeled and unlabeled trips 
+                unused (List) : A list of Entry type of labeled and unlabeled trips which is not used in current function. 
+                                Passed to keep fit function generic.
         """
         ##################
         ### clean data ###
@@ -662,7 +666,7 @@ class NaiveBinningClassifier(TripClassifier):
 
         return self
 
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,unused=None):
         logging.info("PERF: Fitting NaiveBinningClassifier")
         # (copied from bsm.build_user_model())
 
@@ -902,13 +906,13 @@ class ClusterExtrapolationClassifier(TripClassifier):
 
         return self
 
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,ct_entry_list=None):
         # fit clustering model
-        self.end_cluster_model.fit(train_df,ct_entry)
+        self.end_cluster_model.fit(train_df,ct_entry_list)
         self.train_df = self.end_cluster_model.train_df
 
         if self.cluster_method in ['trip', 'combination']:
-            self.start_cluster_model.fit(train_df,ct_entry)
+            self.start_cluster_model.fit(train_df,ct_entry_list)
             self.train_df.loc[:, ['start_cluster_idx'
                                   ]] = self.start_cluster_model.train_df[[
                                       'start_cluster_idx'
@@ -1071,7 +1075,7 @@ class EnsembleClassifier(TripClassifier, metaclass=ABCMeta):
     replaced_predictor = NotImplemented
 
     # required methods
-    def fit(self, train_df,ct_entry=None):
+    def fit(self, train_df,unused=None):
         # get location features
         if self.loc_feature == 'cluster':
             # fit clustering model(s) and one-hot encode their indices
