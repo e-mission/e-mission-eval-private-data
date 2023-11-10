@@ -121,13 +121,12 @@ class Cluster(SetupMixin, metaclass=ABCMeta):
     """ blueprint for clustering models. """
 
     @abstractmethod
-    def fit(self, train_df,unused=None):
+    def fit(self, train_df,train_entry_list):
         """ Fit the clustering algorithm.  
         
             Args: 
                 train_df (DataFrame): dataframe of labeled trips
-                unused (List) : A list of Entry type of labeled and unlabeled trips which is not used in current function. 
-                                Passed to keep fit function generic.            
+                train_entry_list (List) : A list of trips where each element is of Entry type
             Returns:
                 self
         """
@@ -300,10 +299,10 @@ class RefactoredNaiveCluster(Cluster):
 
         return self
 
-    def fit(self, train_df,ct_entry_list=None):
+    def fit(self, unused,train_entry_list=None):
         # clean data
-        logging.info("PERF: Fitting RefactoredNaiveCluster with size %s" % len(train_df))
-        self.train_df = self._clean_data(train_df)
+        logging.info("PERF: Fitting RefactoredNaiveCluster with size %s" % len(unused))
+        self.train_df = self._clean_data(unused)
 
         # we can use all trips as long as they have purpose labels. it's ok if
         # they're missing mode/replaced-mode labels, because they aren't as
@@ -335,7 +334,7 @@ class RefactoredNaiveCluster(Cluster):
           
         # fit the bins
         self.sim_model= eamtg.GreedySimilarityBinning(model_config)
-        cleaned_trip_entry= clustering.cleanEntryTypeData(self.train_df,ct_entry_list)
+        cleaned_trip_entry= clustering.cleanEntryTypeData(self.train_df,train_entry_list)
         self.sim_model.fit(cleaned_trip_entry)
 
         labels = [int(l) for l in self.sim_model.tripLabels]
@@ -351,6 +350,15 @@ class RefactoredNaiveCluster(Cluster):
         elif self.loc_type == 'end':
             bins = self.sim_model.bins
 
+        # bins = { '1': [ .. ....], 
+        #          '2': [......], 
+        #          '3': [.......] ....}
+        #
+        # the code below converts above to 
+        #
+        # bins = { 1: [ .. ....], 
+        #          2: [......], 
+        #          3: [.......] ....}
         bins = {int(key):value for key,value in bins.items()}
         labels = []
 
@@ -903,13 +911,13 @@ class ClusterExtrapolationClassifier(TripClassifier):
 
         return self
 
-    def fit(self, train_df,ct_entry_list=None):
+    def fit(self, train_df,train_entry_list=None):
         # fit clustering model
-        self.end_cluster_model.fit(train_df,ct_entry_list)
+        self.end_cluster_model.fit(train_df,train_entry_list)
         self.train_df = self.end_cluster_model.train_df
 
         if self.cluster_method in ['trip', 'combination']:
-            self.start_cluster_model.fit(train_df,ct_entry_list)
+            self.start_cluster_model.fit(train_df,train_entry_list)
             self.train_df.loc[:, ['start_cluster_idx'
                                   ]] = self.start_cluster_model.train_df[[
                                       'start_cluster_idx'
