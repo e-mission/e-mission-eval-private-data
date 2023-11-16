@@ -19,8 +19,6 @@ from sklearn.model_selection import KFold, ParameterGrid, ParameterSampler
 import models
 from data_wrangling import expand_coords
 from clustering import add_loc_clusters, ALG_OPTIONS, purity_score
-import emission.analysis.modelling.tour_model_first_only.get_users as gu
-import emission.analysis.modelling.tour_model_first_only.data_preprocessing as pp
 
 # TODO: these may require further updating
 DEFAULT_MODES = [

@@ -350,15 +350,15 @@ class RefactoredNaiveCluster(Cluster):
         elif self.loc_type == 'end':
             bins = self.sim_model.bins
 
-        # bins = { '1': [ .. ....], 
-        #          '2': [......], 
-        #          '3': [.......] ....}
+        # bins = { '1': [ 'key1': [] , 'key2' :[],.. ....], 
+        #          '2': ['key1': [] , 'key2' :[],...], 
+        #          '3': ['key1': [] , 'key2' :[],.....] ...}
         #
         # the code below converts above to 
         #
-        # bins = { 1: [ .. ....], 
-        #          2: [......], 
-        #          3: [.......] ....}
+        # bins = { 1: [ 'key1': [] , 'key2' :[],.. ....], 
+        #          2: ['key1': [] , 'key2' :[],...], 
+        #          3: ['key1': [] , 'key2' :[],.....] ....}
         bins = {int(key):value for key,value in bins.items()}
         labels = []
 
@@ -368,10 +368,16 @@ class RefactoredNaiveCluster(Cluster):
                 logging.info("PERF: RefactoredNaiveCluster Working on trip %s/%s" % (idx, len(self.test_df)))
             # iterate over all bins
             trip_binned = False
-            for i, bin in enumerate(bins):
+            for i in bins:
                 # check if the trip can fit in the bin
-                # if so, get the bin index
-                if self._match(row, bin, self.loc_type):
+                # if so, get the bin index.
+                #
+                # 'feature_rows' is the key that contains the list of list where 
+                #  each of the inner list takes the form  :
+                #
+                #            [ start_lon,start_lat,end_lon,end_lat]
+
+                if self._match(row, bins[i]['feature_rows'], self.loc_type):
                     labels += [i]
                     trip_binned = True
                     break
@@ -388,8 +394,7 @@ class RefactoredNaiveCluster(Cluster):
         
             copied from the Similarity class on the e-mission-server. 
         """
-        for t_idx in bin:
-            trip_in_bin = self.train_df.iloc[t_idx]
+        for trip_in_bin in bin:            
             if not self._distance_helper(trip, trip_in_bin, loc_type):
                 return False
         return True
@@ -400,10 +405,16 @@ class RefactoredNaiveCluster(Cluster):
         
             copied from the Similarity class on the e-mission-server. 
         """
+        #tripa is taken from the test datframe. 
+        #tripb is taken from the stored bin list.
         pta_lat = tripa[[loc_type + '_lat']]
         pta_lon = tripa[[loc_type + '_lon']]
-        ptb_lat = tripb[[loc_type + '_lat']]
-        ptb_lon = tripb[[loc_type + '_lon']]
+        if loc_type == 'start':
+            ptb_lat = tripb[1]
+            ptb_lon = tripb[0]
+        elif loc_type == 'end':
+            ptb_lat = tripb[3]
+            ptb_lon = tripb[2]
 
         dist= ecc.calDistance([pta_lon,pta_lat],[ptb_lon,ptb_lat])                                   
         return dist <= self.radius
