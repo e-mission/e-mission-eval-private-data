@@ -359,7 +359,14 @@ class RefactoredNaiveCluster(Cluster):
         # bins = { 1: [ 'key1': [] , 'key2' :[],.. ....], 
         #          2: ['key1': [] , 'key2' :[],...], 
         #          3: ['key1': [] , 'key2' :[],.....] ....}
-        bins = {int(key):value for key,value in bins.items()}
+        #
+        # This is why it works :
+        # 1. Iterate over (key,value) pairs in 'bins.items()'
+        # 2. for each pair, 'key' is a string . so  use int(key) to convert it into an integer.
+        # 3. Create a new dictionary(using {} within the dictionary comprehension) 
+        #     where the keys are now integers and the values are same
+
+        bins = {int(key):value for key,value in bins.items()}        
         labels = []
 
         # for each trip in the test list:
@@ -376,7 +383,6 @@ class RefactoredNaiveCluster(Cluster):
                 #  each of the inner list takes the form  :
                 #
                 #            [ start_lon,start_lat,end_lon,end_lat]
-
                 if self._match(row, bins[i]['feature_rows'], self.loc_type):
                     labels += [i]
                     trip_binned = True
@@ -402,8 +408,6 @@ class RefactoredNaiveCluster(Cluster):
     def _distance_helper(self, tripa, tripb, loc_type):
         """ Check if two trips have start/end points within the distance 
             threshold. 
-        
-            copied from the Similarity class on the e-mission-server. 
         """
         #tripa is taken from the test datframe. 
         #tripb is taken from the stored bin list.
