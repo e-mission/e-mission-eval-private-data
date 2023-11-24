@@ -350,6 +350,11 @@ class RefactoredNaiveCluster(Cluster):
         elif self.loc_type == 'end':
             bins = self.sim_model.bins
 
+        # This looks weird but works
+        # >>> x = [(1, 'a'), (2, 'b'), (3, 'c')]
+        # >>> {int(key):value for key,value in x}
+        # {1: 'a', 2: 'b', 3: 'c'}
+        #
         # bins = { '1': [ 'key1': [] , 'key2' :[],.. ....], 
         #          '2': ['key1': [] , 'key2' :[],...], 
         #          '3': ['key1': [] , 'key2' :[],.....] ...}
