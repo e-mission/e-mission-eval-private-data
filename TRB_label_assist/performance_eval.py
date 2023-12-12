@@ -16,9 +16,9 @@ from sklearn.metrics.cluster import contingency_matrix
 from sklearn.model_selection import KFold, ParameterGrid, ParameterSampler
 
 # our imports
-import models
-from data_wrangling import expand_coords
-from clustering import add_loc_clusters, ALG_OPTIONS, purity_score
+import emission.analysis.modelling.trip_model.models as eamtm
+from emission.analysis.modelling.trip_model.data_wrangling import expand_coords
+from emission.analysis.modelling.trip_model.clustering import add_loc_clusters, ALG_OPTIONS, purity_score
 
 # TODO: these may require further updating
 DEFAULT_MODES = [
@@ -43,31 +43,31 @@ RADIUS = 500
 PREDICTORS = {
     # key: model name
     # value: (model class, model params)
-    'DBSCAN+SVM (destination)': (models.ClusterExtrapolationClassifier, {
+    'DBSCAN+SVM (destination)': (eamtm.ClusterExtrapolationClassifier, {
         'alg': 'DBSCAN',
         'svm': True,
         'cluster_method': 'end',
         'radius': 150,
     }),
-    'DBSCAN+SVM (O-D)': (models.ClusterExtrapolationClassifier, {
+    'DBSCAN+SVM (O-D)': (eamtm.ClusterExtrapolationClassifier, {
         'alg': 'DBSCAN',
         'svm': True,
         'cluster_method': 'trip',
         'radius': 150,
     }),
-    'DBSCAN+SVM (O-D, destination)': (models.ClusterExtrapolationClassifier, {
+    'DBSCAN+SVM (O-D, destination)': (eamtm.ClusterExtrapolationClassifier, {
         'alg': 'DBSCAN',
         'svm': True,
         'cluster_method': 'combination',
         'radius': 150,
     }),
-    'DBSCAN-only (O-D, destination)': (models.ClusterExtrapolationClassifier, {
+    'DBSCAN-only (O-D, destination)': (eamtm.ClusterExtrapolationClassifier, {
         'alg': 'DBSCAN',
         'svm': False,
         'cluster_method': 'combination',
         'radius': 150,
     }),
-    'random forests (destination clusters)': (models.ForestClassifier, {
+    'random forests (destination clusters)': (eamtm.ForestClassifier, {
         'loc_feature': 'cluster',
         'n_estimators': 100,
         'max_depth': None,
@@ -80,7 +80,7 @@ PREDICTORS = {
         'drop_unclustered': False,
         'radius': 150,
     }),
-    'random forests (O-D, destination clusters)': (models.ForestClassifier, {
+    'random forests (O-D, destination clusters)': (eamtm.ForestClassifier, {
         'loc_feature': 'cluster',
         'n_estimators': 100,
         'max_depth': None,
@@ -93,7 +93,7 @@ PREDICTORS = {
         'drop_unclustered': False,
         'radius': 150,
     }),
-    'random forests (coordinates)': (models.ForestClassifier, {
+    'random forests (coordinates)': (eamtm.ForestClassifier, {
         'loc_feature': 'coordinates',
         'n_estimators': 100,
         'max_depth': None,
@@ -103,14 +103,14 @@ PREDICTORS = {
         'bootstrap': False,
     }),
     'fixed-width (O-D)': (
-        models.NaiveBinningClassifier,
+        eamtm.NaiveBinningClassifier,
         {
             # this implementation of the fixed-width algorithm is faster than
             # ClusterExtrapolationClassifier, but only works for O-D pairs (does
             # not work for destination-only or O-D + destination extrapolation)
             'radius': 150,
         }),
-    'fixed-width (O-D, destination)': (models.ClusterExtrapolationClassifier, {
+    'fixed-width (O-D, destination)': (eamtm.ClusterExtrapolationClassifier, {
         'alg': 'naive',
         'radius': 150,
         'cluster_method': 'combination',
