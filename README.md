@@ -2,6 +2,27 @@ This repository contains ipython notebooks for the evaluation of the e-mission
 platform.  These notebooks re-use code from the e-mission-server codebase, so
 it needs to be included while running them.
 
+### Specific info on the error_bars branch by allenmichael099:
+environment used: emission-private-eval, which the "Running" steps below set up.
+e-mission-server used: hlu109/e-mission-server, the eval-private-data-compatibility branch
+    https://github.com/hlu109/e-mission-server/tree/eval-private-data-compatibility
+    This is only important when working with the label assist model developed by hlu109
+
+The error_bars branch implements and tests the ideas in e-mission-docs issue #798 (Estimate mean and variance of energy consumption)
+Relevant code is in the folder Error_bars.
+
+To run analyses, 
+0. Set up a docker container containing the database of trips. Instructions for this are in the OpenPATH General wiki in Teams.
+1. Run store_errors.ipynb to save info on the mode and distance errors (or use the confusion matrices (android/ios_confusion.csv) and distance error info (unit_distance_MCS.csv) that I uploaded).
+2. Run add_sensed_sections_to_confirmed_trips.py. This will find the sensed sections for every trip and add 
+'section_modes' and 'section_distances' fields to each confirmed trip document.
+    The expected and predicted energy consumptions calculations need these since they are at the section level.
+    Currently, it is not parallel. If I'm remembering correctly, running this on the full CEO dataset up to May 2022 takes ~6 hours.
+
+3. Then either run sensing_sensitivity_analysis.py or sensing_error_sensitivity_analysis.ipynb.
+
+
+
 ### Running.
 
 1. Install the e-mission server, including setting it up
