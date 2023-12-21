@@ -1,0 +1,17 @@
+version: "3"
+services:
+  db:
+    image: mongo:4.4.0
+    volumes:
+      - mongo-data:/data/db
+    networks:
+       - emission
+    ports:
+      # 
+      - "27017:27017"
+
+networks:
+  emission:
+
+volumes:
+  mongo-data:
