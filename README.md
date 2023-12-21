@@ -9,7 +9,7 @@ it needs to be included while running them.
 
 1. Set the home environment variable
 
-    ```
+    ```bash
     $ export EMISSION_SERVER_HOME=<path_to_emission_server_repo>
     ```
 
@@ -21,26 +21,26 @@ it needs to be included while running them.
     
 1. If you haven't setup before, set up the evaluation system
 
-    ```
+    ```bash
     $ source setup.sh
     ```
 1. If you have, activate
 
-    ```
+    ```bash
     $ source activate.sh
     ```
 
 1. Access the visualizations of interest and copy the config over. The `<eval_folder>` mentioned below can be any folder containing notebooks and/or .py files for visualisation or other purposes. E.g. : `TRB_label_assist` is one such folder.
 
 
-```
+```bash
 $ cd <eval_folder>
 $ cp -r ../conf .
 ```
 
 1. Start the notebook server
 
-```
+```bash
 $ ../bin/em-jupyter-notebook.sh
 ```
 
@@ -50,6 +50,16 @@ $ ../bin/em-jupyter-notebook.sh
   the top of the notebook, and request the data for research purposes using 
     https://github.com/e-mission/e-mission-server/wiki/Requesting-data-as-a-collaborator
 
+- Assuming that your data is in the "mongodump" format, this repository has a helper script to load the data directly into the database.  
+    - Navigate to the `e-mission-eval-private-data/` directory and start the docker environment
+        ```bash
+            $ docker-compose -f docker-compose.dev.yml up
+        ```
+    - In another terminal, again navigate to the repository. Using the script provided, load the mongodump into docker
+        ```bash
+        $ bash bin/load_mongodump.sh <mongodump_file.tar.gz>
+        ```
+    - Depending on the size of the mongodump, the loading step may take quite a long time (up to _several hours_).  For more details on how to speed up this process, please refer to the data request documentation [here](https://github.com/e-mission/e-mission-server/wiki/Requesting-data-as-a-collaborator).
 ### Cleaning up
 
 After completing analysis, tear down
