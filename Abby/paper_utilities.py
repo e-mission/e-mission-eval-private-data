@@ -214,3 +214,44 @@ def make_distribution_plot(df, col, plot_title, ylab):
     plt.subplots_adjust(bottom=0.25)
     plt.xticks(rotation=35, ha='right')
     plt.legend([])
+    
+#https://stackoverflow.com/questions/41296313/stacked-bar-chart-with-centered-labels
+def make_stacked_bars(df, title, xlabel, ylabel, filename):
+    ax = df.plot.bar(stacked=True, 
+                        title=title, 
+                        ylabel=ylabel,
+                        xlabel =xlabel,
+                        rot = 45)
+
+    for c in ax.containers:
+        labels = [f'{round(v.get_height())}' if v.get_height() > 5.5 else '' for v in c]
+        ax.bar_label(c, labels=labels, label_type='center')
+
+    ax.set_xticklabels(df.index, rotation=45, ha='right')
+    ax.legend(bbox_to_anchor=(1,1), fancybox=True, shadow=True, fontsize=20)
+
+    plt.savefig(filename, bbox_inches='tight')
+    
+def make_ebike_proportion_chart(df, count, col, plot_title, ylab, file_name):
+    plot_data = df.copy()
+
+    t1 = plot_data.groupby(['user_id','Mode_confirm'], as_index=False).count()[['user_id','Mode_confirm','distance_miles']]
+    t1['distance_miles'].fillna(0, inplace=True)
+    if count:
+        t2 = plot_data.groupby(['user_id'], as_index=False).count()[['user_id','distance_miles']]
+    else:
+        t2 = plot_data.groupby(['user_id'], as_index=False).sum()[['user_id','distance_miles']]
+
+    plot_data = t1.merge(t2, on='user_id')
+    plot_data['proportion'] = plot_data['distance_miles_x'] / plot_data['distance_miles_y']
+    plot_data['proportion'].fillna(0, inplace=True)
+    t3 = df.copy().groupby([col,'user_id'], as_index=False).nth(0)[[col,'user_id']]
+
+    plot_data = plot_data[plot_data['Mode_confirm']=='E-bike']
+    plot_data = plot_data.merge(t3, on='user_id')
+
+    fig, ax = plt.subplots(figsize=(6,4))
+    sns.barplot(data=plot_data, x=col, y='proportion', estimator=np.mean).set(title=plot_title,xlabel='',ylabel=ylab)
+    plt.xticks(rotation=35, ha='right')
+    plt.subplots_adjust(bottom=0.25)
+    ax.figure.savefig(file_name+".png", bbox_inches='tight')
