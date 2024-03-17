@@ -22,31 +22,32 @@ plt.rcParams.update(params)
 #input: dataframe of all trips, flag to insert missing "Other" row
 #output: formatted df of work trips and all trips with counts and percentages for modes
 def format_for_mode_bars(trip_df, dataset, insert_other=False):
-  all_trips_df = trip_df.copy()
+    all_trips_df = trip_df.copy()
 
-  all_trips_df.loc[all_trips_df['Mode_confirm']=='Personal Micromobility', 'Mode_confirm'] = 'Other'
-  all_trips_df.loc[all_trips_df['Mode_confirm']=='Shared Micromobility', 'Mode_confirm'] = 'Other'  
+    all_trips_df.loc[all_trips_df['Mode_confirm']=='Personal Micromobility', 'Mode_confirm'] = 'Other'
+    all_trips_df.loc[all_trips_df['Mode_confirm']=='Shared Micromobility', 'Mode_confirm'] = 'Other'  
 
-  all_trips = all_trips_df.groupby(['Mode_confirm'], as_index=False).count()[['Mode_confirm','distance_miles']]
-  all_trips['proportion'] = all_trips['distance_miles'] / np.sum(all_trips.distance_miles)
-  all_trips['trip_type'] = 'All Trips'
+    all_trips = all_trips_df.groupby(['Mode_confirm'], as_index=False).count()[['Mode_confirm','distance_miles']]
+    all_trips['proportion'] = all_trips['distance_miles'] / np.sum(all_trips.distance_miles)
+    all_trips['trip_type'] = 'All Trips'
 
-  work_trips = all_trips_df[all_trips_df['Trip_purpose']=='Work'].copy()
-  work_trips = work_trips.groupby(['Mode_confirm'], as_index=False).count()[['Mode_confirm','distance_miles']]
-  work_trips['proportion'] = work_trips['distance_miles'] / np.sum(work_trips.distance_miles)
-  work_trips['trip_type'] = 'Work Trips'
+    work_trips = all_trips_df[all_trips_df['Trip_purpose']=='Work'].copy()
+    work_trips = work_trips.groupby(['Mode_confirm'], as_index=False).count()[['Mode_confirm','distance_miles']]
+    work_trips['proportion'] = work_trips['distance_miles'] / np.sum(work_trips.distance_miles)
+    work_trips['trip_type'] = 'Work Trips'
 
-  if insert_other:
+    if insert_other:
     work_trips.loc[1.5] = 'Other', 0, 0, 'Work Trips'
     work_trips = work_trips.sort_index().reset_index(drop=True)
 
-  formatted_df = pd.concat([all_trips,work_trips])
-  formatted_df['Dataset'] = dataset
-  formatted_df.columns = ['Mode','Count','Proportion','Trip Type', "Dataset"]
+    formatted_df = pd.concat([all_trips,work_trips])
+    formatted_df['Dataset'] = dataset
+    formatted_df.columns = ['Mode','Count','Proportion','Trip Type', "Dataset"]
 
-  return formatted_df
+    return formatted_df
 
 #input: dataframe formatted for plotting, dimension (Mode or Purpose)
+#creates chart comparing minipilot and long term study stats
 def make_mini_vs_full(plot_data, dimension):
     width = 0.8
     fig, ax = plt.subplots(2,1, figsize=(20,10))
@@ -85,6 +86,8 @@ def make_mini_vs_full(plot_data, dimension):
     fig.tight_layout()
     plt.show()
     
+#input: dataframe to format mode data by program, list of programs, if filtering by work trips
+#output: formatted dataframe with proportions broken down by mode and program
 def format_mode_by_program(df, program_list, work = False):
     mode_data = df.copy()
     subset_plot_data = []
@@ -158,6 +161,8 @@ H is the hatch used for identification of the different dataframe"""
     axe.add_artist(l1)
     return axe
 
+#input: dataframe of trips
+#output: dataframe formatted for plotting purposes
 def format_purpose_bars(trip_df, dataset):
     trips = trip_df.copy()
     trips = trips[~trips['Trip_purpose'].isin(['No travel'])]
@@ -183,6 +188,8 @@ def format_purpose_bars(trip_df, dataset):
 
     return formatted_trips
 
+#input: dataframe for plotting -- all or induced trips
+#plots chart and saves to filename
 def make_occupation_chart(df, plot_title, filename):
     plot_data = df.copy()
 
@@ -204,7 +211,9 @@ def make_occupation_chart(df, plot_title, filename):
     plt.subplots_adjust(bottom=0.25)
 
     plt.savefig(filename, bbox_inches='tight')
-    
+
+#input: data to plot, column of interest, title, and y axis label
+#makes a box plot of data along given column
 def make_distribution_plot(df, col, plot_title, ylab):
     plot_data = df.copy()
     sns.set_palette('Set1', 9)
@@ -232,6 +241,7 @@ def make_stacked_bars(df, title, xlabel, ylabel, filename):
 
     plt.savefig(filename, bbox_inches='tight')
     
+#input: data, boolean to count if True and sum if false, column of interest, and strings for title labels and filename
 def make_ebike_proportion_chart(df, count, col, plot_title, ylab, file_name):
     plot_data = df.copy()
 
