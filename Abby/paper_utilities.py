@@ -204,3 +204,13 @@ def make_occupation_chart(df, plot_title, filename):
     plt.subplots_adjust(bottom=0.25)
 
     plt.savefig(filename, bbox_inches='tight')
+    
+def make_distribution_plot(df, col, plot_title, ylab):
+    plot_data = df.copy()
+    sns.set_palette('Set1', 9)
+
+    fig, ax = plt.subplots(figsize=(10,8))
+    sns.boxplot(ax=ax, data=plot_data, x='Mode_confirm', y=col, hue='Mode_confirm', showfliers=False).set(title=plot_title, xlabel='', ylabel=ylab)
+    plt.subplots_adjust(bottom=0.25)
+    plt.xticks(rotation=35, ha='right')
+    plt.legend([])
