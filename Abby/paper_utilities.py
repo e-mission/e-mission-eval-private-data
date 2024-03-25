@@ -37,8 +37,8 @@ def format_for_mode_bars(trip_df, dataset, insert_other=False):
     work_trips['trip_type'] = 'Work Trips'
 
     if insert_other:
-    work_trips.loc[1.5] = 'Other', 0, 0, 'Work Trips'
-    work_trips = work_trips.sort_index().reset_index(drop=True)
+        work_trips.loc[1.5] = 'Other', 0, 0, 'Work Trips'
+        work_trips = work_trips.sort_index().reset_index(drop=True)
 
     formatted_df = pd.concat([all_trips,work_trips])
     formatted_df['Dataset'] = dataset
