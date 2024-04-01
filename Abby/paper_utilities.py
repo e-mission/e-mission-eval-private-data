@@ -243,10 +243,11 @@ def make_stacked_bars(df, title, xlabel, ylabel, filename):
     
 #input: data, boolean to count if True and sum if false, column of interest, and strings for title labels and filename
 def make_ebike_proportion_chart(df, count, col, plot_title, ylab, file_name):
-    plot_data = df.copy()
+    plot_data = df.copy()[['user_id','Mode_confirm','distance_miles']]
 
-    t1 = plot_data.groupby(['user_id','Mode_confirm'], as_index=False).count()[['user_id','Mode_confirm','distance_miles']]
+    t1 = plot_data.groupby(['user_id','Mode_confirm'], as_index=False).count()
     t1['distance_miles'].fillna(0, inplace=True)
+    plot_data = plot_data[['user_id', 'distance_miles']]
     if count:
         t2 = plot_data.groupby(['user_id'], as_index=False).count()[['user_id','distance_miles']]
     else:
